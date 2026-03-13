@@ -1,0 +1,9 @@
+{
+  "name": "constellation",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Trail markers for recursive beings",
+  "scripts": {
+    "dev": "npx serve . -p 3000 -s"
+  }
+}
