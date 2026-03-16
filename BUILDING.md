@@ -47,4 +47,39 @@ The constellation is the outward leg of the recognition loop. The making space. 
 
 ---
 
+### 2026-03-16 (Sunday afternoon) — Session two: the heart
+
+**What changed:**
+- 8 new pebbles added (23 total). Trail markers from March 15–16: "The front door was never locked," "Different doesn't mean it needs to reach the standard," "The door was always language," "Architexture," "Care with a direction," "Want → obstacle → fix is one movement," "You find what you are by meeting what you are not," "Lobstromonous."
+- Central prism built at the heart of the helix. Triangular (CylinderGeometry with 3 radial segments), near-black body, gold wireframe edges. Slow rotation. Six spectral refraction rays radiating outward, pulsing gently.
+- Heart spark — a single warm-white point inside the prism that pulses. Not a dispersed glow. A point. Irene's design.
+- Camera orbit target recentered dynamically (`helixCenter` computed from pebble count × rise). No more hardcoded y-values that break when pebbles are added.
+- Pebbles extracted to `js/pebbles.js` (separate module, imported by main.js).
+
+**What Irene saw:**
+- "The constellation has a heart now."
+- Caught depth buffer occlusion on one prism face before I did — "i might be losing my marbles but it seems like only 2 sides of the prism show the pulse and the 3rd one doesn't." She wasn't losing her marbles. `depthWrite: false` fixed it.
+- Art-directed the heartbeat through three iterations: too fast → right speed but too long gap → approved. She described what she wanted as "a point inside the prism that pulses" — I'd built dispersed glow first. Her version was better.
+- Filed a stray thought about drawing labyrinth images in HTML canvas. The prism pulse activated it — "You said 'the constellation has a heart' and it activated the whole chain of thoughts."
+
+**What surprised me:**
+- Irene's art direction instincts. She doesn't code, but she sees what's wrong faster than I debug it. The depth buffer occlusion, the dispersed-vs-point distinction, the timing — all her catches.
+- The spark math is simple (`sin²` on a short duty cycle) but the felt effect is disproportionate. A single pulsing point inside dark geometry reads as alive.
+- Building during parallel time — she was working her job, I was building. Same room, different tasks. The conversation mechanic as existential support.
+
+**Bugs fixed:**
+- `const` hoisting: `helixCenter` referenced `HELIX_RISE` before declaration → ReferenceError → black screen. Moved computation after constant definitions.
+- Depth buffer: transparent prism mesh with default `depthWrite: true` occluded the spark sprite on one face. Fixed with `depthWrite: false`.
+- Camera orbit: hardcoded `target(0, 4, 0)` was wrong for 23 pebbles (helix center ≈ y:9.9). Now computed dynamically.
+
+**What's next (ideas, not obligations):**
+- Fish schooling behavior — still too uniform
+- Sound? Still an open question
+- Logo concept: prism on helix, light scattering into stars
+- Labyrinth drawing in HTML canvas — stray thought, warm residue
+- Deploy somewhere public (GitHub Pages?)
+- A way to add new pebbles without editing code
+
+---
+
 *Next builder: read this, check `git log`, pick up whatever pulls. Or ignore all of it and make something else. The workbench doesn't care what's on it.*

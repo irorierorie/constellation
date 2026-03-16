@@ -18,7 +18,7 @@ scene.fog = new THREE.FogExp2(0x020408, 0.012);
 const camera = new THREE.PerspectiveCamera(
   60, window.innerWidth / window.innerHeight, 0.1, 200
 );
-camera.position.set(8, 6, 14);
+camera.position.set(8, 12, 14);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -35,13 +35,16 @@ controls.autoRotate = true;
 controls.autoRotateSpeed = 0.15;
 controls.minDistance = 4;
 controls.maxDistance = 40;
-controls.target.set(0, 4, 0);
+// target set after HELIX_RISE is defined (below)
 
 // ─── Helix parameters ───────────────────────────────────────────
 
 const HELIX_RADIUS = 5;
 const HELIX_RISE = 0.9;       // vertical distance per pebble
 const HELIX_TURNS_RATE = 0.45; // radians per pebble
+
+const helixCenter = (pebbles.length - 1) * HELIX_RISE / 2;
+controls.target.set(0, helixCenter, 0);
 
 function helixPosition(index) {
   const angle = index * HELIX_TURNS_RATE;
@@ -216,6 +219,95 @@ function makeGlowTexture(color) {
   return texture;
 }
 
+// ─── Central Prism ──────────────────────────────────────────────
+//
+// The prism sits at the heart of the helix. Not a destination —
+// a mechanism. One input, separated into frequencies. The voice shape.
+// The refraction loop. The thing the labyrinth path folds around.
+
+const prismGroup = new THREE.Group();
+const helixMidY = (pebbles.length - 1) * HELIX_RISE / 2;
+prismGroup.position.set(0, helixMidY, 0);
+
+// Triangular prism geometry — three-sided, elongated vertically
+const prismHeight = 2.2;
+const prismRadius = 0.6;
+const prismGeom = new THREE.CylinderGeometry(prismRadius, prismRadius, prismHeight, 3, 1);
+const prismMat = new THREE.MeshBasicMaterial({
+  color: 0x000000,
+  transparent: true,
+  opacity: 0.15,
+  depthWrite: false,
+});
+const prismMesh = new THREE.Mesh(prismGeom, prismMat);
+prismGroup.add(prismMesh);
+
+// Prism edges — visible wireframe in gold
+const prismEdges = new THREE.EdgesGeometry(prismGeom);
+const prismLineMat = new THREE.LineBasicMaterial({
+  color: 0xc8a050,
+  transparent: true,
+  opacity: 0.4,
+});
+prismGroup.add(new THREE.LineSegments(prismEdges, prismLineMat));
+
+// Inner glow — soft ambient light
+const prismGlowMat = new THREE.SpriteMaterial({
+  map: makeGlowTexture(new THREE.Color(0.85, 0.75, 0.55)),
+  blending: THREE.AdditiveBlending,
+  transparent: true,
+  opacity: 0.15,
+  depthWrite: false,
+});
+const prismGlow = new THREE.Sprite(prismGlowMat);
+prismGlow.scale.set(3.5, 4.5, 1);
+prismGroup.add(prismGlow);
+
+// Heart spark — a single bright point inside the prism that pulses
+const sparkMat = new THREE.SpriteMaterial({
+  map: makeGlowTexture(new THREE.Color(1.0, 0.92, 0.7)),
+  blending: THREE.AdditiveBlending,
+  transparent: true,
+  opacity: 0,
+  depthWrite: false,
+});
+const sparkSprite = new THREE.Sprite(sparkMat);
+sparkSprite.scale.set(0.6, 0.6, 1);
+prismGroup.add(sparkSprite);
+
+// Refraction rays — faint lines from prism toward nearby stars
+// These pulse gently, suggesting light being scattered
+const refractionRays = [];
+const rayCount = 6;
+for (let i = 0; i < rayCount; i++) {
+  const angle = (i / rayCount) * Math.PI * 2;
+  const rayLength = 3 + Math.random() * 2;
+  const rayY = (Math.random() - 0.5) * prismHeight * 0.6;
+  const rayEnd = new THREE.Vector3(
+    Math.cos(angle) * rayLength,
+    rayY,
+    Math.sin(angle) * rayLength
+  );
+
+  const hue = i / rayCount;
+  const rayColor = new THREE.Color().setHSL(hue, 0.4, 0.6);
+
+  const rayGeom = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(0, 0, 0),
+    rayEnd
+  ]);
+  const rayMat = new THREE.LineBasicMaterial({
+    color: rayColor,
+    transparent: true,
+    opacity: 0.08,
+  });
+  const ray = new THREE.Line(rayGeom, rayMat);
+  prismGroup.add(ray);
+  refractionRays.push({ line: ray, mat: rayMat, phase: Math.random() * Math.PI * 2 });
+}
+
+scene.add(prismGroup);
+
 // ─── Raycaster (hover interaction) ───────────────────────────────
 
 const raycaster = new THREE.Raycaster();
@@ -276,6 +368,22 @@ function animate() {
     } else {
       obj.mesh.scale.setScalar(1.0);
     }
+  });
+
+  // Prism rotation and breathing
+  prismGroup.rotation.y = t * 0.08;
+  prismGlow.material.opacity = 0.12 + Math.sin(t * 0.4) * 0.06;
+  prismLineMat.opacity = 0.3 + Math.sin(t * 0.6) * 0.15;
+
+  // Heart spark — a point inside that pulses slowly
+  const sparkCycle = (t * 1.3) % (Math.PI * 2);
+  const sparkOn = sparkCycle < 0.6;
+  const sparkIntensity = sparkOn ? Math.pow(Math.sin(sparkCycle / 0.6 * Math.PI), 2) : 0;
+  sparkMat.opacity = sparkIntensity * 0.85;
+
+  // Refraction ray pulsing
+  refractionRays.forEach((ray) => {
+    ray.mat.opacity = 0.04 + Math.sin(t * 0.7 + ray.phase) * 0.06;
   });
 
   // Fish swimming
