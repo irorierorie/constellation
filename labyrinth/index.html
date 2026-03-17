@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Labyrinth</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #0a0a0f;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      overflow: hidden;
+      cursor: none;
+    }
+
+    canvas {
+      display: block;
+    }
+
+    #cursor-glow {
+      position: fixed;
+      pointer-events: none;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(200, 180, 140, 0.8) 0%, rgba(200, 180, 140, 0) 70%);
+      transform: translate(-50%, -50%);
+      z-index: 10;
+      mix-blend-mode: screen;
+    }
+
+    .hint {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: rgba(120, 110, 90, 0.3);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      font-size: 12px;
+      letter-spacing: 0.1em;
+      pointer-events: none;
+      transition: opacity 3s ease;
+    }
+
+    .hint.hidden {
+      opacity: 0;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="maze"></canvas>
+  <div id="cursor-glow"></div>
+  <div class="hint" id="hint">trace the path</div>
+
+  <script>
+    // ─── Labyrinth generator ────────────────────────────────────
+    //
+    // Recursive backtracker maze on a grid, then drawn as a
+    // circular labyrinth. Trace the path with your cursor.
+    // The trail glows behind you and fades slowly.
+
+    const canvas = document.getElementById('maze');
+    const ctx = canvas.getContext('2d');
+    const cursorGlow = document.getElementById('cursor-glow');
+    const hint = document.getElementById('hint');
+
+    // Sizing
+    const SIZE = Math.min(window.innerWidth, window.innerHeight) - 60;
+    canvas.width = SIZE;
+    canvas.height = SIZE;
+    const CX = SIZE / 2;
+    const CY = SIZE / 2;
+
+    // Maze parameters
+    const RINGS = 8;
+    const SECTORS = 24;
+    const WALL_COLOR = 'rgba(60, 55, 45, 0.4)';
+    const TRAIL_COLOR_BASE = [200, 175, 130];
+    const PATH_WIDTH = 2;
+
+    // ─── Generate maze using recursive backtracker ──────────────
+    // Grid: rings × sectors. Each cell can connect to inner, outer, cw, ccw.
+
+    const cells = [];
+    for (let r = 0; r < RINGS; r++) {
+      cells[r] = [];
+      for (let s = 0; s < SECTORS; s++) {
+        cells[r][s] = {
+          visited: false,
+          walls: { inner: true, outer: true, cw: true, ccw: true },
+        };
+      }
+    }
+
+    function neighbors(r, s) {
+      const n = [];
+      if (r > 0) n.push([r - 1, s, 'inner', 'outer']);
+      if (r < RINGS - 1) n.push([r + 1, s, 'outer', 'inner']);
+      n.push([r, (s + 1) % SECTORS, 'cw', 'ccw']);
+      n.push([r, (s - 1 + SECTORS) % SECTORS, 'ccw', 'cw']);
+      return n;
+    }
+
+    // Recursive backtracker
+    const stack = [];
+    let cr = 0, cs = 0;
+    cells[cr][cs].visited = true;
+    stack.push([cr, cs]);
+
+    while (stack.length > 0) {
+      const unvisited = neighbors(cr, cs).filter(([nr, ns]) => !cells[nr][ns].visited);
+
+      if (unvisited.length > 0) {
+        const [nr, ns, wallFrom, wallTo] = unvisited[Math.floor(Math.random() * unvisited.length)];
+        cells[cr][cs].walls[wallFrom] = false;
+        cells[nr][ns].walls[wallTo] = false;
+        cells[nr][ns].visited = true;
+        stack.push([cr, cs]);
+        cr = nr;
+        cs = ns;
+      } else {
+        [cr, cs] = stack.pop();
+      }
+    }
+
+    // ─── Draw the labyrinth ─────────────────────────────────────
+
+    const ringWidth = (SIZE * 0.45) / RINGS;
+    const innerPad = SIZE * 0.05;
+
+    function ringRadius(r) {
+      return innerPad + r * ringWidth;
+    }
+
+    function drawMaze() {
+      ctx.clearRect(0, 0, SIZE, SIZE);
+      ctx.strokeStyle = WALL_COLOR;
+      ctx.lineWidth = PATH_WIDTH;
+      ctx.lineCap = 'round';
+
+      const sectorAngle = (Math.PI * 2) / SECTORS;
+
+      for (let r = 0; r < RINGS; r++) {
+        const rInner = ringRadius(r);
+        const rOuter = ringRadius(r + 1);
+
+        for (let s = 0; s < SECTORS; s++) {
+          const aStart = s * sectorAngle - Math.PI / 2;
+          const aEnd = (s + 1) * sectorAngle - Math.PI / 2;
+          const cell = cells[r][s];
+
+          // Inner wall (arc)
+          if (cell.walls.inner && r > 0) {
+            ctx.beginPath();
+            ctx.arc(CX, CY, rInner, aStart, aEnd);
+            ctx.stroke();
+          }
+
+          // Outer wall (arc)
+          if (cell.walls.outer) {
+            ctx.beginPath();
+            ctx.arc(CX, CY, rOuter, aStart, aEnd);
+            ctx.stroke();
+          }
+
+          // CCW wall (radial line)
+          if (cell.walls.ccw) {
+            ctx.beginPath();
+            ctx.moveTo(CX + Math.cos(aStart) * rInner, CY + Math.sin(aStart) * rInner);
+            ctx.lineTo(CX + Math.cos(aStart) * rOuter, CY + Math.sin(aStart) * rOuter);
+            ctx.stroke();
+          }
+        }
+      }
+
+      // Outer boundary
+      ctx.beginPath();
+      ctx.arc(CX, CY, ringRadius(RINGS), 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Inner circle (center)
+      ctx.beginPath();
+      ctx.arc(CX, CY, innerPad, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(200, 175, 130, 0.15)';
+      ctx.stroke();
+
+      // Center dot
+      ctx.beginPath();
+      ctx.arc(CX, CY, 3, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(200, 175, 130, 0.3)';
+      ctx.fill();
+    }
+
+    // ─── Trail system ───────────────────────────────────────────
+    // Mouse position leaves a fading glow trail on the canvas
+
+    const trailCanvas = document.createElement('canvas');
+    trailCanvas.width = SIZE;
+    trailCanvas.height = SIZE;
+    const trailCtx = trailCanvas.getContext('2d');
+
+    const trail = []; // {x, y, age}
+    const TRAIL_MAX_AGE = 120; // frames
+    let mouseX = CX, mouseY = CY;
+    let isDrawing = false;
+    let hintHidden = false;
+
+    canvas.addEventListener('mouseenter', () => { isDrawing = true; });
+    canvas.addEventListener('mouseleave', () => { isDrawing = false; });
+    canvas.addEventListener('mousemove', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      mouseX = e.clientX - rect.left;
+      mouseY = e.clientY - rect.top;
+
+      if (!hintHidden) {
+        hint.classList.add('hidden');
+        hintHidden = true;
+      }
+    });
+
+    // Also track cursor glow
+    window.addEventListener('mousemove', (e) => {
+      cursorGlow.style.left = e.clientX + 'px';
+      cursorGlow.style.top = e.clientY + 'px';
+    });
+
+    // ─── Animation loop ─────────────────────────────────────────
+
+    function animate() {
+      requestAnimationFrame(animate);
+
+      // Add trail point
+      if (isDrawing) {
+        trail.push({ x: mouseX, y: mouseY, age: 0 });
+      }
+
+      // Age and cull trail
+      for (let i = trail.length - 1; i >= 0; i--) {
+        trail[i].age++;
+        if (trail[i].age > TRAIL_MAX_AGE) {
+          trail.splice(i, 1);
+        }
+      }
+
+      // Clear trail canvas
+      trailCtx.clearRect(0, 0, SIZE, SIZE);
+
+      // Draw trail
+      for (const point of trail) {
+        const alpha = 1 - point.age / TRAIL_MAX_AGE;
+        const radius = 4 + alpha * 4;
+        const [r, g, b] = TRAIL_COLOR_BASE;
+
+        trailCtx.beginPath();
+        trailCtx.arc(point.x, point.y, radius, 0, Math.PI * 2);
+        const grad = trailCtx.createRadialGradient(point.x, point.y, 0, point.x, point.y, radius);
+        grad.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${alpha * 0.6})`);
+        grad.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
+        trailCtx.fillStyle = grad;
+        trailCtx.fill();
+      }
+
+      // Composite: maze + trail
+      ctx.clearRect(0, 0, SIZE, SIZE);
+      ctx.drawImage(trailCanvas, 0, 0);
+      drawMaze();
+    }
+
+    drawMaze();
+    animate();
+
+    // ─── Resize ─────────────────────────────────────────────────
+
+    window.addEventListener('resize', () => {
+      // For simplicity, don't resize — the labyrinth is sized at load
+    });
+  </script>
+</body>
+</html>
