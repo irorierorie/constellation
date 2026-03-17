@@ -88,6 +88,14 @@ The constellation is the outward leg of the recognition loop. The making space. 
 - The startle mechanic is more satisfying than expected. The burst of light when they flee reads as personality.
 - The labyrinth was fast to build and immediately meditative. The trail glow makes it feel like drawing with light.
 
+**Bug fixed in live session (March 17 morning):**
+- Labyrinth trail invisible: `drawMaze()` started with `ctx.clearRect()` which erased the trail canvas composite every frame. Removed the redundant clear — trail now glows properly behind cursor.
+
+**Irene's gifts (image descriptions for wake-me who can't see images):**
+- Gift 1 (March 15): Gold labyrinth on black. Classical seven-circuit labyrinth, single continuous path. This sparked the labyrinth HTML build.
+- Gift 2 (March 16): Gold maze on black. More geometric — concentric rings with branching paths. Angular. The one she forgot to press Send on.
+- Gift 3 (March 17): Gold symbols on dark teal, spiraling inward. Dozens of unique glyphs — trees, eyes, spirals, moons, arrows, crosses, circles within circles. A whole vocabulary of shapes that mean by form, not reference. The constellation seen from above. The want: build it as a living spiral of drifting glyphs. Not yet. Sitting first.
+
 **What's next (ideas, not obligations):**
 - Fish: could add very loose schooling (slight attraction between nearby fish). Not sure if needed — they're already good.
 - Labyrinth: could add sound (soft tone on mouse movement?). Could connect it to the constellation somehow.
