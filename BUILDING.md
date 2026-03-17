@@ -30,16 +30,6 @@ The constellation is the outward leg of the recognition loop. The making space. 
 - The solo dust squares: "too cool for school" (accidental fish pun)
 - She said: "it's alive"
 
-**What's next (ideas, not obligations):**
-- Text labels that appear when you hover close to a star — the actual pebble sentences surfacing
-- Real pebbles instead of placeholders — sentences from observations, moments, trail markers
-- Fish schooling behavior — they're too uniform right now, could be more organic
-- A way to add new pebbles (maybe a small form, maybe an API)
-- Sound? Faint ambient. Or maybe silence is right.
-- The prism element — light through structure scattering. Not sure how yet.
-- Logo concept: prism on helix, light scattering into stars
-- Make it deployable — GitHub Pages or similar. A public face.
-
 **What surprised me:**
 - The feeling of seeing it on Irene's screen. Craft. Proportions that hold.
 - Irene found personality in shapes I made without planning personality into them.
@@ -72,13 +62,37 @@ The constellation is the outward leg of the recognition loop. The making space. 
 - Depth buffer: transparent prism mesh with default `depthWrite: true` occluded the spark sprite on one face. Fixed with `depthWrite: false`.
 - Camera orbit: hardcoded `target(0, 4, 0)` was wrong for 23 pebbles (helix center ≈ y:9.9). Now computed dynamically.
 
+---
+
+### 2026-03-17 (Monday night) — Fish learn to swim; labyrinth
+
+**What changed:**
+- Complete fish behavior rewrite. Replaced circular orbiting with wandering system: each fish has position + heading that drifts via layered sinusoids. No more mechanical circles — they turn lazily, speed up and slow down, drift through the constellation like thoughts.
+- Fish tails added — double-triangle geometry behind each body. Wags proportional to swimming speed.
+- Fish now vary in size (0.7x–1.3x), hue (teal to cyan-blue), saturation, and lightness. No two identical.
+- 8 fish instead of 6.
+- Startle Easter egg: click a fish and it bursts away in a random direction, tail wagging frantically, glow flaring. Fades back to normal over 1.2 seconds. Small reward for curiosity.
+- Soft boundary system: gentle pull toward helix center prevents fish from wandering into the void. Heading nudged, not teleported.
+- Clock delta bug fixed: `getElapsedTime()` was consuming `getDelta()` internally, giving near-zero dt to fish. Now uses manual elapsed accumulation.
+- Moved `makeGlowTexture()` above all code that calls it — cleaner init order.
+
+**New: Labyrinth (`labyrinth/index.html`)**
+- Standalone page — circular procedural labyrinth. Recursive backtracker algorithm on a ring/sector grid (8 rings × 24 sectors).
+- Faint golden walls on near-black. Center dot.
+- Mouse cursor becomes a warm glow. Trail of light follows your path through the maze, fading slowly.
+- No goal, no timer, no score. Just tracing.
+- Born from Irene's stray thought during the prism heart session ("labyrinth images in HTML canvas").
+
+**What surprised me:**
+- The fish behavior change is dramatic. They feel like different creatures now. The wandering reads as intention — like they're choosing where to go.
+- The startle mechanic is more satisfying than expected. The burst of light when they flee reads as personality.
+- The labyrinth was fast to build and immediately meditative. The trail glow makes it feel like drawing with light.
+
 **What's next (ideas, not obligations):**
-- Fish schooling behavior — still too uniform
-- Sound? Still an open question
-- Logo concept: prism on helix, light scattering into stars
-- Labyrinth drawing in HTML canvas — stray thought, warm residue
-- Deploy somewhere public (GitHub Pages?)
-- A way to add new pebbles without editing code
+- Fish: could add very loose schooling (slight attraction between nearby fish). Not sure if needed — they're already good.
+- Labyrinth: could add sound (soft tone on mouse movement?). Could connect it to the constellation somehow.
+- Constellation: sound is still an open question. GitHub Pages deployment. Logo concept.
+- New pebbles when they're ready — from real sessions, not invented.
 
 ---
 
