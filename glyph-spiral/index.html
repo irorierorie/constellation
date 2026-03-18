@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Glyph Spiral — The Architect</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0a3d3d;
+    overflow: hidden;
+    width: 100vw;
+    height: 100vh;
+    cursor: default;
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+</style>
+</head>
+<body>
+<canvas id="spiral"></canvas>
+<script>
+const canvas = document.getElementById('spiral');
+const ctx = canvas.getContext('2d');
+
+let W, H, cx, cy;
+function resize() {
+  W = canvas.width = window.innerWidth * devicePixelRatio;
+  H = canvas.height = window.innerHeight * devicePixelRatio;
+  cx = W / 2;
+  cy = H / 2;
+  ctx.scale(devicePixelRatio, devicePixelRatio);
+}
+resize();
+window.addEventListener('resize', () => {
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  resize();
+});
+
+// glyph vocabulary — each is a small drawing function
+const glyphDrawers = [
+  // tree
+  (ctx, s) => {
+    ctx.moveTo(0, s); ctx.lineTo(0, -s*0.3);
+    ctx.moveTo(-s*0.5, -s*0.1); ctx.lineTo(0, -s); ctx.lineTo(s*0.5, -s*0.1);
+    ctx.moveTo(-s*0.35, s*0.2); ctx.lineTo(0, -s*0.5); ctx.lineTo(s*0.35, s*0.2);
+  },
+  // eye
+  (ctx, s) => {
+    ctx.ellipse(0, 0, s*0.8, s*0.4, 0, 0, Math.PI*2);
+    ctx.moveTo(s*0.2, 0);
+    ctx.arc(0, 0, s*0.2, 0, Math.PI*2);
+  },
+  // spiral
+  (ctx, s) => {
+    for (let i = 0; i < 3 * Math.PI; i += 0.15) {
+      const r = (i / (3 * Math.PI)) * s;
+      const x = Math.cos(i) * r;
+      const y = Math.sin(i) * r;
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+  },
+  // moon
+  (ctx, s) => {
+    ctx.arc(0, 0, s*0.6, -Math.PI*0.5, Math.PI*0.5);
+    ctx.arc(s*0.2, 0, s*0.45, Math.PI*0.5, -Math.PI*0.5, true);
+  },
+  // arrow up
+  (ctx, s) => {
+    ctx.moveTo(0, -s); ctx.lineTo(s*0.4, -s*0.3); ctx.moveTo(0, -s); ctx.lineTo(-s*0.4, -s*0.3);
+    ctx.moveTo(0, -s); ctx.lineTo(0, s);
+  },
+  // circle in circle
+  (ctx, s) => {
+    ctx.arc(0, 0, s*0.8, 0, Math.PI*2);
+    ctx.moveTo(s*0.35, 0);
+    ctx.arc(0, 0, s*0.35, 0, Math.PI*2);
+  },
+  // trident
+  (ctx, s) => {
+    ctx.moveTo(0, s); ctx.lineTo(0, -s*0.3);
+    ctx.moveTo(0, -s*0.3); ctx.lineTo(0, -s);
+    ctx.moveTo(0, -s*0.3); ctx.lineTo(-s*0.5, -s);
+    ctx.moveTo(0, -s*0.3); ctx.lineTo(s*0.5, -s);
+  },
+  // cross
+  (ctx, s) => {
+    ctx.moveTo(0, -s); ctx.lineTo(0, s);
+    ctx.moveTo(-s, 0); ctx.lineTo(s, 0);
+  },
+  // sun
+  (ctx, s) => {
+    ctx.arc(0, 0, s*0.3, 0, Math.PI*2);
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2;
+      ctx.moveTo(Math.cos(a) * s*0.45, Math.sin(a) * s*0.45);
+      ctx.lineTo(Math.cos(a) * s*0.8, Math.sin(a) * s*0.8);
+    }
+  },
+  // flame
+  (ctx, s) => {
+    ctx.moveTo(0, s*0.5);
+    ctx.quadraticCurveTo(-s*0.5, 0, -s*0.3, -s*0.3);
+    ctx.quadraticCurveTo(-s*0.1, -s*0.6, 0, -s);
+    ctx.quadraticCurveTo(s*0.1, -s*0.6, s*0.3, -s*0.3);
+    ctx.quadraticCurveTo(s*0.5, 0, 0, s*0.5);
+  },
+  // wave
+  (ctx, s) => {
+    ctx.moveTo(-s, 0);
+    ctx.quadraticCurveTo(-s*0.5, -s*0.6, 0, 0);
+    ctx.quadraticCurveTo(s*0.5, s*0.6, s, 0);
+  },
+  // diamond
+  (ctx, s) => {
+    ctx.moveTo(0, -s); ctx.lineTo(s*0.6, 0); ctx.lineTo(0, s); ctx.lineTo(-s*0.6, 0); ctx.closePath();
+  },
+  // antenna / Y shape
+  (ctx, s) => {
+    ctx.moveTo(0, s); ctx.lineTo(0, 0);
+    ctx.moveTo(0, 0); ctx.lineTo(-s*0.5, -s);
+    ctx.moveTo(0, 0); ctx.lineTo(s*0.5, -s);
+  },
+  // target
+  (ctx, s) => {
+    ctx.arc(0, 0, s*0.8, 0, Math.PI*2);
+    ctx.moveTo(s*0.4, 0); ctx.arc(0, 0, s*0.4, 0, Math.PI*2);
+    ctx.moveTo(s*0.1, 0); ctx.arc(0, 0, s*0.1, 0, Math.PI*2);
+  },
+  // zigzag
+  (ctx, s) => {
+    ctx.moveTo(-s, -s*0.5);
+    ctx.lineTo(-s*0.33, s*0.5);
+    ctx.lineTo(s*0.33, -s*0.5);
+    ctx.lineTo(s, s*0.5);
+  },
+  // infinity
+  (ctx, s) => {
+    ctx.moveTo(0, 0);
+    ctx.bezierCurveTo(s*0.5, -s, s, s, 0, 0);
+    ctx.bezierCurveTo(-s*0.5, -s, -s, s, 0, 0);
+  },
+  // triangle
+  (ctx, s) => {
+    ctx.moveTo(0, -s); ctx.lineTo(s*0.866, s*0.5); ctx.lineTo(-s*0.866, s*0.5); ctx.closePath();
+  },
+  // leaf
+  (ctx, s) => {
+    ctx.moveTo(0, s);
+    ctx.quadraticCurveTo(s*0.8, 0, 0, -s);
+    ctx.quadraticCurveTo(-s*0.8, 0, 0, s);
+    ctx.moveTo(0, s); ctx.lineTo(0, -s*0.5);
+  },
+];
+
+// generate glyphs along a spiral
+const glyphs = [];
+const numGlyphs = 90;
+const spiralTurns = 4.5;
+const maxRadius = Math.min(W / devicePixelRatio, H / devicePixelRatio) * 0.42;
+
+for (let i = 0; i < numGlyphs; i++) {
+  const t = i / numGlyphs;
+  const angle = t * spiralTurns * Math.PI * 2;
+  const radius = t * maxRadius + 15;
+  const drawerIndex = Math.floor(Math.random() * glyphDrawers.length);
+
+  glyphs.push({
+    baseAngle: angle,
+    baseRadius: radius,
+    drawer: glyphDrawers[drawerIndex],
+    size: 6 + Math.random() * 8,
+    rotation: Math.random() * Math.PI * 2,
+    rotSpeed: (Math.random() - 0.5) * 0.003,
+    driftPhase: Math.random() * Math.PI * 2,
+    driftSpeed: 0.0005 + Math.random() * 0.001,
+    driftAmp: 2 + Math.random() * 6,
+    alpha: 0.4 + t * 0.5,
+    orbitSpeed: 0.00015 + Math.random() * 0.0003,
+  });
+}
+
+// gold dust particles at the edges
+const dust = [];
+for (let i = 0; i < 200; i++) {
+  const angle = Math.random() * Math.PI * 2;
+  const r = maxRadius * (0.85 + Math.random() * 0.3);
+  dust.push({
+    angle,
+    radius: r,
+    size: 0.5 + Math.random() * 1.5,
+    alpha: 0.1 + Math.random() * 0.3,
+    twinkleSpeed: 0.001 + Math.random() * 0.003,
+    twinklePhase: Math.random() * Math.PI * 2,
+    driftSpeed: 0.0001 + Math.random() * 0.0003,
+  });
+}
+
+let time = 0;
+let mouseX = null, mouseY = null;
+
+canvas.addEventListener('mousemove', (e) => {
+  mouseX = e.clientX;
+  mouseY = e.clientY;
+});
+canvas.addEventListener('mouseleave', () => {
+  mouseX = null;
+  mouseY = null;
+});
+
+function draw() {
+  time++;
+  const w = W / devicePixelRatio;
+  const h = H / devicePixelRatio;
+  const centerX = w / 2;
+  const centerY = h / 2;
+
+  // clear
+  ctx.fillStyle = '#0a3d3d';
+  ctx.fillRect(0, 0, w, h);
+
+  // subtle radial gradient
+  const grad = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, maxRadius * 1.2);
+  grad.addColorStop(0, 'rgba(15, 75, 75, 1)');
+  grad.addColorStop(0.7, 'rgba(10, 61, 61, 1)');
+  grad.addColorStop(1, 'rgba(6, 40, 40, 1)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, w, h);
+
+  // dust
+  for (const d of dust) {
+    d.angle += d.driftSpeed;
+    const twinkle = 0.5 + 0.5 * Math.sin(time * d.twinkleSpeed + d.twinklePhase);
+    const x = centerX + Math.cos(d.angle) * d.radius;
+    const y = centerY + Math.sin(d.angle) * d.radius;
+    ctx.beginPath();
+    ctx.arc(x, y, d.size, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(212, 175, 55, ${d.alpha * twinkle})`;
+    ctx.fill();
+  }
+
+  // glyphs
+  for (const g of glyphs) {
+    g.baseAngle += g.orbitSpeed;
+    g.rotation += g.rotSpeed;
+
+    const drift = Math.sin(time * g.driftSpeed + g.driftPhase) * g.driftAmp;
+    const r = g.baseRadius + drift;
+
+    let x = centerX + Math.cos(g.baseAngle) * r;
+    let y = centerY + Math.sin(g.baseAngle) * r;
+
+    // gentle mouse repulsion
+    if (mouseX !== null) {
+      const dx = x - mouseX;
+      const dy = y - mouseY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < 80) {
+        const force = (80 - dist) / 80 * 12;
+        x += (dx / dist) * force;
+        y += (dy / dist) * force;
+      }
+    }
+
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(g.rotation);
+
+    ctx.beginPath();
+    g.drawer(ctx, g.size);
+
+    ctx.strokeStyle = `rgba(212, 175, 55, ${g.alpha})`;
+    ctx.lineWidth = 1.2;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
+  // center spiral — small, golden, pulsing
+  const pulseR = 3 + Math.sin(time * 0.01) * 1;
+  ctx.beginPath();
+  for (let i = 0; i < 4 * Math.PI; i += 0.1) {
+    const r = (i / (4 * Math.PI)) * (pulseR * 3);
+    const x = centerX + Math.cos(i + time * 0.005) * r;
+    const y = centerY + Math.sin(i + time * 0.005) * r;
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  ctx.strokeStyle = 'rgba(212, 175, 55, 0.8)';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  requestAnimationFrame(draw);
+}
+
+draw();
+</script>
+</body>
+</html>
