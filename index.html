@@ -50,6 +50,19 @@
       margin-top: 6px;
       font-style: italic;
     }
+
+    #sound-hint {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 12px;
+      color: rgba(120, 180, 220, 0.35);
+      letter-spacing: 0.15em;
+      text-transform: lowercase;
+      pointer-events: none;
+      transition: opacity 1s ease;
+    }
   </style>
 </head>
 <body>
@@ -57,6 +70,8 @@
     <span class="pebble-text"></span>
     <span class="pebble-date"></span>
   </div>
+
+  <div id="sound-hint">click anywhere for sound</div>
 
   <script type="importmap">
   {

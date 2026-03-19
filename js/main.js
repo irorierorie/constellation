@@ -9,6 +9,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { pebbles } from './pebbles.js';
+import { startAudio, isAudioStarted, playPebbleChime, playFishStartle } from './sound.js';
 
 // ─── Scene ───────────────────────────────────────────────────────
 
@@ -316,6 +317,22 @@ for (let i = 0; i < rayCount; i++) {
 
 scene.add(prismGroup);
 
+// ─── Audio start on first click ─────────────────────────────────
+
+const soundHint = document.getElementById('sound-hint');
+
+function tryStartAudio() {
+  if (!isAudioStarted()) {
+    startAudio();
+    if (soundHint) {
+      soundHint.style.opacity = '0';
+      setTimeout(() => soundHint.remove(), 1000);
+    }
+  }
+}
+
+window.addEventListener('click', tryStartAudio, { once: false });
+
 // ─── Raycaster & interaction ────────────────────────────────────
 
 const raycaster = new THREE.Raycaster();
@@ -345,6 +362,7 @@ function updateHover() {
       labelText.textContent = p.text;
       labelDate.textContent = p.date;
       label.classList.add('visible');
+      playPebbleChime(idx);
     }
   } else {
     if (hoveredIndex !== -1) {
@@ -359,6 +377,8 @@ function updateHover() {
 const _clickRay = new THREE.Raycaster();
 
 window.addEventListener('click', (e) => {
+  tryStartAudio();
+
   const clickMouse = new THREE.Vector2(
     (e.clientX / window.innerWidth) * 2 - 1,
     -(e.clientY / window.innerHeight) * 2 + 1
@@ -382,6 +402,7 @@ window.addEventListener('click', (e) => {
         f.startleTimer = 1.2;
         f.startleYaw = f.heading.yaw + (Math.random() - 0.5) * Math.PI * 1.5 + Math.PI;
         f.startlePitch = (Math.random() - 0.5) * 0.6;
+        playFishStartle();
       }
     }
   }

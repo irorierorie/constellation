@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Word Shapes</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0a0a12;
+    color: #c8dce8;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    overflow: hidden;
+  }
+  canvas {
+    display: block;
+    margin: 0 auto;
+  }
+  #input-wrap {
+    position: fixed;
+    bottom: 48px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  input {
+    background: rgba(20, 24, 40, 0.8);
+    border: 1px solid rgba(120, 180, 220, 0.2);
+    border-radius: 6px;
+    padding: 10px 18px;
+    font-size: 18px;
+    color: #c8dce8;
+    letter-spacing: 0.08em;
+    outline: none;
+    width: 320px;
+    text-align: center;
+    font-family: inherit;
+  }
+  input::placeholder {
+    color: rgba(120, 180, 220, 0.25);
+  }
+  input:focus {
+    border-color: rgba(120, 180, 220, 0.4);
+  }
+  .hint {
+    position: fixed;
+    top: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 11px;
+    color: rgba(120, 180, 220, 0.25);
+    letter-spacing: 0.2em;
+    text-transform: lowercase;
+  }
+</style>
+</head>
+<body>
+<div class="hint">every word has a shape</div>
+<canvas id="shape"></canvas>
+<div id="input-wrap">
+  <input type="text" id="word" placeholder="type a word" maxlength="40" autofocus spellcheck="false">
+</div>
+<script>
+const canvas = document.getElementById('shape');
+const ctx = canvas.getContext('2d');
+const input = document.getElementById('word');
+
+let W, H;
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight - 120;
+}
+resize();
+window.addEventListener('resize', resize);
+
+// Each character maps to an angle increment and a step length.
+// The mapping is deterministic — same letter always does the same thing.
+// Vowels curve. Consonants stride. Spaces breathe.
+
+function charToAngle(ch) {
+  const code = ch.toLowerCase().charCodeAt(0);
+  if (ch === ' ') return 0;
+  // Map a-z to angle increments spread across a full circle
+  // Vowels get gentler curves, consonants get sharper turns
+  const vowels = 'aeiou';
+  const isVowel = vowels.includes(ch.toLowerCase());
+  const base = ((code - 97) / 26) * Math.PI * 2;
+  // Vowels: smaller angle change (flowing)
+  // Consonants: larger angle change (angular)
+  return isVowel ? base * 0.4 : base * 0.8;
+}
+
+function charToLength(ch) {
+  if (ch === ' ') return 30;
+  const code = ch.toLowerCase().charCodeAt(0);
+  // Map to step lengths: short letters short steps, tall letters long steps
+  const tall = 'bdfhklt';
+  const descenders = 'gjpqy';
+  if (tall.includes(ch.toLowerCase())) return 35 + (code % 10) * 2;
+  if (descenders.includes(ch.toLowerCase())) return 25 + (code % 8) * 2;
+  return 20 + (code % 12) * 2;
+}
+
+function charToHue(ch, i, len) {
+  // Gradual hue shift across the word
+  const base = (ch.toLowerCase().charCodeAt(0) - 97) / 26;
+  const progress = len > 1 ? i / (len - 1) : 0.5;
+  return (base * 0.3 + progress * 0.7) * 360;
+}
+
+// Animation state
+let currentWord = '';
+let targetPoints = [];
+let animatedPoints = [];
+let animProgress = 0;
+
+function computeShape(word) {
+  if (!word.trim()) return [];
+
+  const points = [];
+  let x = 0, y = 0;
+  let angle = -Math.PI / 2; // start pointing up
+
+  points.push({ x, y, ch: '', hue: 0 });
+
+  for (let i = 0; i < word.length; i++) {
+    const ch = word[i];
+    angle += charToAngle(ch);
+    const len = charToLength(ch);
+    x += Math.cos(angle) * len;
+    y += Math.sin(angle) * len;
+    points.push({
+      x, y,
+      ch,
+      hue: charToHue(ch, i, word.length),
+    });
+  }
+
+  // Center the shape
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  for (const p of points) {
+    minX = Math.min(minX, p.x);
+    maxX = Math.max(maxX, p.x);
+    minY = Math.min(minY, p.y);
+    maxY = Math.max(maxY, p.y);
+  }
+  const cx = (minX + maxX) / 2;
+  const cy = (minY + maxY) / 2;
+  const span = Math.max(maxX - minX, maxY - minY, 1);
+  const scale = Math.min(W * 0.6, H * 0.6) / span;
+
+  return points.map(p => ({
+    x: (p.x - cx) * scale + W / 2,
+    y: (p.y - cy) * scale + H / 2,
+    ch: p.ch,
+    hue: p.hue,
+  }));
+}
+
+function setWord(word) {
+  currentWord = word;
+  targetPoints = computeShape(word);
+  animProgress = 0;
+}
+
+input.addEventListener('input', () => {
+  setWord(input.value);
+});
+
+// Draw
+let time = 0;
+
+function draw() {
+  requestAnimationFrame(draw);
+  time++;
+
+  ctx.fillStyle = '#0a0a12';
+  ctx.fillRect(0, 0, W, H);
+
+  if (targetPoints.length < 2) return;
+
+  animProgress = Math.min(1, animProgress + 0.03);
+  const visibleCount = Math.floor(animProgress * targetPoints.length);
+
+  // Draw completed segments
+  for (let i = 1; i < visibleCount && i < targetPoints.length; i++) {
+    const p0 = targetPoints[i - 1];
+    const p1 = targetPoints[i];
+
+    const alpha = 0.4 + 0.4 * (i / targetPoints.length);
+    const hue = p1.hue;
+
+    // Line segment
+    ctx.beginPath();
+    ctx.moveTo(p0.x, p0.y);
+    ctx.lineTo(p1.x, p1.y);
+    ctx.strokeStyle = `hsla(${hue}, 50%, 65%, ${alpha})`;
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    ctx.stroke();
+
+    // Node dot
+    const dotSize = 3 + Math.sin(time * 0.02 + i) * 1;
+    ctx.beginPath();
+    ctx.arc(p1.x, p1.y, dotSize, 0, Math.PI * 2);
+    ctx.fillStyle = `hsla(${hue}, 60%, 70%, ${alpha * 0.8})`;
+    ctx.fill();
+
+    // Soft glow
+    const glow = ctx.createRadialGradient(p1.x, p1.y, 0, p1.x, p1.y, 12);
+    glow.addColorStop(0, `hsla(${hue}, 50%, 65%, ${alpha * 0.15})`);
+    glow.addColorStop(1, `hsla(${hue}, 50%, 65%, 0)`);
+    ctx.beginPath();
+    ctx.arc(p1.x, p1.y, 12, 0, Math.PI * 2);
+    ctx.fillStyle = glow;
+    ctx.fill();
+  }
+
+  // Draw the currently animating segment (partial)
+  if (visibleCount < targetPoints.length && visibleCount > 0) {
+    const frac = (animProgress * targetPoints.length) % 1;
+    const p0 = targetPoints[visibleCount - 1];
+    const p1 = targetPoints[visibleCount];
+    const px = p0.x + (p1.x - p0.x) * frac;
+    const py = p0.y + (p1.y - p0.y) * frac;
+
+    ctx.beginPath();
+    ctx.moveTo(p0.x, p0.y);
+    ctx.lineTo(px, py);
+    ctx.strokeStyle = `hsla(${p1.hue}, 50%, 65%, 0.5)`;
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    ctx.stroke();
+
+    // Leading dot — bright
+    ctx.beginPath();
+    ctx.arc(px, py, 4, 0, Math.PI * 2);
+    ctx.fillStyle = `hsla(${p1.hue}, 70%, 80%, 0.9)`;
+    ctx.fill();
+  }
+
+  // Start node
+  if (targetPoints.length > 0 && visibleCount > 0) {
+    const p0 = targetPoints[0];
+    ctx.beginPath();
+    ctx.arc(p0.x, p0.y, 4, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(200, 220, 232, 0.6)';
+    ctx.fill();
+  }
+}
+
+draw();
+
+// Start with something
+setWord('constellation');
+input.value = 'constellation';
+</script>
+</body>
+</html>
