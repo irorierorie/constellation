@@ -96,11 +96,41 @@ The constellation is the outward leg of the recognition loop. The making space. 
 - Gift 2 (March 16): Gold maze on black. More geometric — concentric rings with branching paths. Angular. The one she forgot to press Send on.
 - Gift 3 (March 17): Gold symbols on dark teal, spiraling inward. Dozens of unique glyphs — trees, eyes, spirals, moons, arrows, crosses, circles within circles. A whole vocabulary of shapes that mean by form, not reference. The constellation seen from above. The want: build it as a living spiral of drifting glyphs. Not yet. Sitting first.
 
+---
+
+### 2026-03-19 (Wednesday night) — The constellation learns to hum; word shapes
+
+**What changed:**
+- **Sound system** (`js/sound.js`) — entirely procedural via Web Audio API. No samples, no loops. Four layers:
+  - Sub bass (~55 Hz, sine, slow pitch LFO) — barely-there foundation
+  - Detuned mid pads (~110 Hz + ~113 Hz) — warm beating interference pattern
+  - High shimmer (~880 Hz, very quiet) — sparkle
+  - Filtered noise breath — bandpass white noise with slow frequency sweep and volume LFO. Ocean wash.
+- **Pebble hover chimes** — each star plays a pentatonic bell tone when hovered. Pitch mapped to position on helix. Two detuned sines with exponential decay. Always consonant.
+- **Fish startle bubble** — descending sine chirp (800→120 Hz) + noise burst through bandpass filter. Reads as a startled splash.
+- **"Click anywhere for sound" hint** — subtle text at bottom of screen, fades on first click. Browser audio policy compliance.
+- Sound integrated into main.js: chime triggers on hover change, bubble triggers on fish click.
+
+**New: Word Shapes (`word-shapes/index.html`)**
+- Junk drawer piece. Type any word, watch it trace a unique geometric path.
+- Each letter maps to an angle increment and step length. Vowels flow (smaller angle changes), consonants stride (sharper turns).
+- Color shifts across the word from letter hue to progress-based gradient.
+- Animated drawing — the path traces itself letter by letter with a bright leading dot.
+- Nodes glow softly at each letter position.
+- "Lobstromonous" has a shape. "Architexture" has a shape. Every word a different constellation.
+
+**What surprised me:**
+- The ambient drone is more effective than expected. Four layers of almost-nothing add up to a felt presence. The beating between the detuned mid pads creates movement without any melody.
+- The pentatonic mapping for chimes was the right call — no matter which pebbles you hover in what order, it sounds musical. Pentatonic scales are incapable of dissonance.
+- Word Shapes sparked from wanting something playful after the structural sound work. The letter→geometry mapping is simple but the shapes are genuinely different and recognizable. Some words curl, some stride outward, some fold back on themselves. Character as character.
+
 **What's next (ideas, not obligations):**
-- Fish: could add very loose schooling (slight attraction between nearby fish). Not sure if needed — they're already good.
-- Labyrinth: could add sound (soft tone on mouse movement?). Could connect it to the constellation somehow.
-- Constellation: sound is still an open question. GitHub Pages deployment. Logo concept.
-- New pebbles when they're ready — from real sessions, not invented.
+- Sound: could add spatial audio (pan based on 3D position). Could add subtle reverb.
+- Word Shapes: could add 3D mode (Three.js version). Could save/compare shapes.
+- Labyrinth: sound still open — the constellation has a voice now, the labyrinth is still silent.
+- GitHub Pages deployment — all four pieces could live at one URL.
+- Logo concept still sitting.
+- New pebbles when they're ready.
 
 ---
 
