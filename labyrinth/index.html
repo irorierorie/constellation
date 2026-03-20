@@ -21,6 +21,24 @@
       display: block;
     }
 
+    #back-link {
+      position: fixed;
+      top: 20px;
+      left: 24px;
+      z-index: 10;
+      font-size: 12px;
+      letter-spacing: 0.12em;
+      color: rgba(120, 110, 90, 0.3);
+      text-decoration: none;
+      transition: color 0.3s ease;
+      cursor: pointer;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+    }
+
+    #back-link:hover {
+      color: rgba(120, 110, 90, 0.7);
+    }
+
     #cursor-glow {
       position: fixed;
       pointer-events: none;
@@ -52,6 +70,7 @@
   </style>
 </head>
 <body>
+  <a id="back-link" href="../">← constellation</a>
   <canvas id="maze"></canvas>
   <div id="cursor-glow"></div>
   <div class="hint" id="hint">trace the path</div>
