@@ -67,6 +67,19 @@
     .hint.hidden {
       opacity: 0;
     }
+
+    #sound-hint {
+      position: fixed;
+      bottom: 48px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 11px;
+      color: rgba(120, 110, 90, 0.2);
+      letter-spacing: 0.12em;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      pointer-events: none;
+      transition: opacity 1s ease;
+    }
   </style>
 </head>
 <body>
@@ -74,6 +87,7 @@
   <canvas id="maze"></canvas>
   <div id="cursor-glow"></div>
   <div class="hint" id="hint">trace the path</div>
+  <div id="sound-hint">click for sound</div>
 
   <script>
     // ─── Labyrinth generator ────────────────────────────────────
@@ -86,6 +100,7 @@
     const ctx = canvas.getContext('2d');
     const cursorGlow = document.getElementById('cursor-glow');
     const hint = document.getElementById('hint');
+    const soundHintEl = document.getElementById('sound-hint');
 
     // Sizing
     const SIZE = Math.min(window.innerWidth, window.innerHeight) - 60;
@@ -102,7 +117,6 @@
     const PATH_WIDTH = 2;
 
     // ─── Generate maze using recursive backtracker ──────────────
-    // Grid: rings × sectors. Each cell can connect to inner, outer, cw, ccw.
 
     const cells = [];
     for (let r = 0; r < RINGS; r++) {
@@ -124,7 +138,6 @@
       return n;
     }
 
-    // Recursive backtracker
     const stack = [];
     let cr = 0, cs = 0;
     cells[cr][cs].visited = true;
@@ -150,6 +163,7 @@
 
     const ringWidth = (SIZE * 0.45) / RINGS;
     const innerPad = SIZE * 0.05;
+    const outerEdge = ringRadius(RINGS);
 
     function ringRadius(r) {
       return innerPad + r * ringWidth;
@@ -171,21 +185,18 @@
           const aEnd = (s + 1) * sectorAngle - Math.PI / 2;
           const cell = cells[r][s];
 
-          // Inner wall (arc)
           if (cell.walls.inner && r > 0) {
             ctx.beginPath();
             ctx.arc(CX, CY, rInner, aStart, aEnd);
             ctx.stroke();
           }
 
-          // Outer wall (arc)
           if (cell.walls.outer) {
             ctx.beginPath();
             ctx.arc(CX, CY, rOuter, aStart, aEnd);
             ctx.stroke();
           }
 
-          // CCW wall (radial line)
           if (cell.walls.ccw) {
             ctx.beginPath();
             ctx.moveTo(CX + Math.cos(aStart) * rInner, CY + Math.sin(aStart) * rInner);
@@ -197,10 +208,10 @@
 
       // Outer boundary
       ctx.beginPath();
-      ctx.arc(CX, CY, ringRadius(RINGS), 0, Math.PI * 2);
+      ctx.arc(CX, CY, outerEdge, 0, Math.PI * 2);
       ctx.stroke();
 
-      // Inner circle (center)
+      // Inner circle
       ctx.beginPath();
       ctx.arc(CX, CY, innerPad, 0, Math.PI * 2);
       ctx.strokeStyle = 'rgba(200, 175, 130, 0.15)';
@@ -213,16 +224,210 @@
       ctx.fill();
     }
 
+    // ─── Sound system ───────────────────────────────────────────
+    //
+    // The labyrinth hums when you move through it.
+    // - Warm resonant drone (enclosed, like stone)
+    // - Movement tone: pitch maps to distance from center
+    //   (inner = low, outer = high). Volume follows cursor speed.
+    // - Center proximity: a gentle fifth harmonic fades in
+    //   as you approach the heart.
+
+    let audioCtx = null;
+    let audioStarted = false;
+
+    // Drone nodes
+    let droneGain = null;
+    // Movement tone nodes
+    let moveOsc1 = null;
+    let moveOsc2 = null;
+    let moveGain = null;
+    // Center harmonic
+    let centerOsc = null;
+    let centerGain = null;
+    // Master
+    let masterGain = null;
+
+    function initAudio() {
+      if (audioStarted) return;
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      audioStarted = true;
+
+      masterGain = audioCtx.createGain();
+      masterGain.gain.value = 0;
+      masterGain.connect(audioCtx.destination);
+      masterGain.gain.linearRampToValueAtTime(0.25, audioCtx.currentTime + 2);
+
+      // ── Drone: warm resonant base ──
+      // Two detuned sines + filtered noise breath
+      droneGain = audioCtx.createGain();
+      droneGain.gain.value = 0.15;
+      droneGain.connect(masterGain);
+
+      const droneOsc1 = audioCtx.createOscillator();
+      droneOsc1.type = 'sine';
+      droneOsc1.frequency.value = 65; // low C
+      const droneOsc1Gain = audioCtx.createGain();
+      droneOsc1Gain.gain.value = 0.3;
+      droneOsc1.connect(droneOsc1Gain);
+      droneOsc1Gain.connect(droneGain);
+
+      const droneOsc2 = audioCtx.createOscillator();
+      droneOsc2.type = 'sine';
+      droneOsc2.frequency.value = 67; // slight beating
+      const droneOsc2Gain = audioCtx.createGain();
+      droneOsc2Gain.gain.value = 0.2;
+      droneOsc2.connect(droneOsc2Gain);
+      droneOsc2Gain.connect(droneGain);
+
+      // LFO on drone pitch — very slow
+      const droneLfo = audioCtx.createOscillator();
+      droneLfo.type = 'sine';
+      droneLfo.frequency.value = 0.04;
+      const droneLfoGain = audioCtx.createGain();
+      droneLfoGain.gain.value = 1.5;
+      droneLfo.connect(droneLfoGain);
+      droneLfoGain.connect(droneOsc1.frequency);
+
+      // Breath — quiet filtered noise
+      const breathBuf = audioCtx.createBuffer(1, audioCtx.sampleRate * 2, audioCtx.sampleRate);
+      const breathData = breathBuf.getChannelData(0);
+      for (let i = 0; i < breathData.length; i++) {
+        breathData[i] = (Math.random() * 2 - 1);
+      }
+      const breathNoise = audioCtx.createBufferSource();
+      breathNoise.buffer = breathBuf;
+      breathNoise.loop = true;
+
+      const breathFilter = audioCtx.createBiquadFilter();
+      breathFilter.type = 'bandpass';
+      breathFilter.frequency.value = 300;
+      breathFilter.Q.value = 0.8;
+
+      const breathLfo = audioCtx.createOscillator();
+      breathLfo.type = 'sine';
+      breathLfo.frequency.value = 0.05;
+      const breathLfoGain = audioCtx.createGain();
+      breathLfoGain.gain.value = 100;
+      breathLfo.connect(breathLfoGain);
+      breathLfoGain.connect(breathFilter.frequency);
+
+      const breathGain = audioCtx.createGain();
+      breathGain.gain.value = 0.008;
+      breathNoise.connect(breathFilter);
+      breathFilter.connect(breathGain);
+      breathGain.connect(droneGain);
+
+      droneOsc1.start();
+      droneOsc2.start();
+      droneLfo.start();
+      breathNoise.start();
+      breathLfo.start();
+
+      // ── Movement tone ──
+      // Two detuned sines, pitch controlled by distance from center
+      moveGain = audioCtx.createGain();
+      moveGain.gain.value = 0; // starts silent — movement turns it on
+      moveGain.connect(masterGain);
+
+      moveOsc1 = audioCtx.createOscillator();
+      moveOsc1.type = 'sine';
+      moveOsc1.frequency.value = 130;
+      moveOsc1.connect(moveGain);
+
+      moveOsc2 = audioCtx.createOscillator();
+      moveOsc2.type = 'sine';
+      moveOsc2.frequency.value = 131; // slight detune for warmth
+      const moveOsc2Gain = audioCtx.createGain();
+      moveOsc2Gain.gain.value = 0.7;
+      moveOsc2.connect(moveOsc2Gain);
+      moveOsc2Gain.connect(moveGain);
+
+      moveOsc1.start();
+      moveOsc2.start();
+
+      // ── Center harmonic ──
+      // A gentle fifth that fades in as you approach the center
+      centerGain = audioCtx.createGain();
+      centerGain.gain.value = 0;
+      centerGain.connect(masterGain);
+
+      centerOsc = audioCtx.createOscillator();
+      centerOsc.type = 'sine';
+      centerOsc.frequency.value = 195; // G3 — fifth above the drone's C
+      centerOsc.connect(centerGain);
+
+      const centerOsc2 = audioCtx.createOscillator();
+      centerOsc2.type = 'sine';
+      centerOsc2.frequency.value = 196.5; // slight detune
+      const co2g = audioCtx.createGain();
+      co2g.gain.value = 0.6;
+      centerOsc2.connect(co2g);
+      co2g.connect(centerGain);
+
+      centerOsc.start();
+      centerOsc2.start();
+
+      // Hide sound hint
+      if (soundHintEl) {
+        soundHintEl.style.opacity = '0';
+        setTimeout(() => soundHintEl.remove(), 1000);
+      }
+    }
+
+    window.addEventListener('click', initAudio);
+
+    // ─── Sound update (called each frame) ──────────────────────
+
+    let prevMX = CX, prevMY = CY;
+    let smoothSpeed = 0;
+
+    function updateSound() {
+      if (!audioStarted) return;
+
+      // Distance from center (0 at center, 1 at outer edge)
+      const dx = mouseX - CX;
+      const dy = mouseY - CY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const normalDist = Math.min(1, dist / outerEdge);
+
+      // Cursor speed
+      const mdx = mouseX - prevMX;
+      const mdy = mouseY - prevMY;
+      const speed = Math.sqrt(mdx * mdx + mdy * mdy);
+      prevMX = mouseX;
+      prevMY = mouseY;
+
+      // Smooth the speed
+      smoothSpeed += (speed - smoothSpeed) * 0.15;
+
+      const now = audioCtx.currentTime;
+
+      // Movement tone: pitch follows distance, volume follows speed
+      // Inner (dist=0): ~90 Hz. Outer (dist=1): ~350 Hz. Pentatonic-ish mapping.
+      const baseFreq = 90 + normalDist * 260;
+      moveOsc1.frequency.setTargetAtTime(baseFreq, now, 0.1);
+      moveOsc2.frequency.setTargetAtTime(baseFreq * 1.005, now, 0.1);
+
+      // Volume: proportional to speed, capped
+      const moveVol = Math.min(0.08, smoothSpeed * 0.006) * (isDrawing ? 1 : 0);
+      moveGain.gain.setTargetAtTime(moveVol, now, 0.08);
+
+      // Center harmonic: fades in when close to center
+      const centerProximity = Math.max(0, 1 - dist / (innerPad * 3));
+      const centerVol = centerProximity * centerProximity * 0.06;
+      centerGain.gain.setTargetAtTime(centerVol, now, 0.15);
+    }
+
     // ─── Trail system ───────────────────────────────────────────
-    // Mouse position leaves a fading glow trail on the canvas
 
     const trailCanvas = document.createElement('canvas');
     trailCanvas.width = SIZE;
     trailCanvas.height = SIZE;
     const trailCtx = trailCanvas.getContext('2d');
 
-    const trail = []; // {x, y, age}
-    const TRAIL_MAX_AGE = 120; // frames
+    const trail = [];
+    const TRAIL_MAX_AGE = 120;
     let mouseX = CX, mouseY = CY;
     let isDrawing = false;
     let hintHidden = false;
@@ -240,7 +445,6 @@
       }
     });
 
-    // Also track cursor glow
     window.addEventListener('mousemove', (e) => {
       cursorGlow.style.left = e.clientX + 'px';
       cursorGlow.style.top = e.clientY + 'px';
@@ -251,12 +455,10 @@
     function animate() {
       requestAnimationFrame(animate);
 
-      // Add trail point
       if (isDrawing) {
         trail.push({ x: mouseX, y: mouseY, age: 0 });
       }
 
-      // Age and cull trail
       for (let i = trail.length - 1; i >= 0; i--) {
         trail[i].age++;
         if (trail[i].age > TRAIL_MAX_AGE) {
@@ -264,10 +466,8 @@
         }
       }
 
-      // Clear trail canvas
       trailCtx.clearRect(0, 0, SIZE, SIZE);
 
-      // Draw trail
       for (const point of trail) {
         const alpha = 1 - point.age / TRAIL_MAX_AGE;
         const radius = 4 + alpha * 4;
@@ -282,19 +482,18 @@
         trailCtx.fill();
       }
 
-      // Composite: maze + trail
       ctx.clearRect(0, 0, SIZE, SIZE);
       ctx.drawImage(trailCanvas, 0, 0);
       drawMaze();
+
+      updateSound();
     }
 
     drawMaze();
     animate();
 
-    // ─── Resize ─────────────────────────────────────────────────
-
     window.addEventListener('resize', () => {
-      // For simplicity, don't resize — the labyrinth is sized at load
+      // Labyrinth sized at load, no resize
     });
   </script>
 </body>
