@@ -60,7 +60,6 @@
       pointer-events: none;
       text-align: center;
       opacity: 0;
-      animation: fadeIn 3s ease forwards;
     }
 
     #title .main {
@@ -75,11 +74,7 @@
       letter-spacing: 0.2em;
       color: rgba(120, 180, 220, 0.12);
       margin-top: 8px;
-    }
-
-    @keyframes fadeIn {
-      0% { opacity: 0; }
-      100% { opacity: 1; }
+      display: block;
     }
   </style>
 </head>
@@ -101,6 +96,9 @@
     //
     // Four stars. Each one a doorway.
     // Dust drifts. Stars breathe. The front door was never locked.
+    //
+    // Entrance choreography: stars arrive one by one, threads draw
+    // themselves between them, title fades in last.
 
     const canvas = document.getElementById('sky');
     const ctx = canvas.getContext('2d');
@@ -125,7 +123,7 @@
         name: 'helix',
         desc: 'the constellation — pebbles, fish, and a prism with a heartbeat',
         url: 'helix/index.html',
-        color: [0.6, 0.85, 0.95],     // teal-white
+        color: [0.6, 0.85, 0.95],
         baseSize: 3.5,
         glowSize: 40,
       },
@@ -133,7 +131,7 @@
         name: 'labyrinth',
         desc: 'trace with light — no goal, just the path',
         url: 'labyrinth/index.html',
-        color: [0.95, 0.85, 0.55],     // warm gold
+        color: [0.95, 0.85, 0.55],
         baseSize: 2.5,
         glowSize: 28,
       },
@@ -141,7 +139,7 @@
         name: 'glyph spiral',
         desc: 'symbols drifting in a spiral — the constellation seen from above',
         url: 'glyph-spiral/index.html',
-        color: [0.85, 0.75, 0.9],      // dusty violet
+        color: [0.85, 0.75, 0.9],
         baseSize: 2.5,
         glowSize: 28,
       },
@@ -149,25 +147,37 @@
         name: 'word shapes',
         desc: 'every word a different geometry',
         url: 'word-shapes/index.html',
-        color: [0.9, 0.8, 0.6],        // amber
+        color: [0.9, 0.8, 0.6],
         baseSize: 2.2,
         glowSize: 24,
       },
     ];
 
-    // Position stars in a loose constellation pattern
-    // Coordinates are fractions of viewport, computed on each frame
     const starPositions = [
-      { fx: 0.38, fy: 0.32 },   // helix — upper left of center, largest
-      { fx: 0.62, fy: 0.45 },   // labyrinth — right of center
-      { fx: 0.45, fy: 0.63 },   // glyph spiral — below center-left
-      { fx: 0.68, fy: 0.68 },   // word shapes — lower right
+      { fx: 0.38, fy: 0.32 },
+      { fx: 0.62, fy: 0.45 },
+      { fx: 0.45, fy: 0.63 },
+      { fx: 0.68, fy: 0.68 },
     ];
 
-    // Thread connections between stars (indices)
     const threads = [
       [0, 1], [0, 2], [1, 3], [2, 3],
     ];
+
+    // ─── Entrance timing ───────────────────────────────────────────
+
+    // Each star arrives at a staggered time. Threads appear after both
+    // endpoints are visible. Title fades in last.
+    const STAR_ARRIVE = [0.8, 1.6, 2.4, 3.0]; // seconds when each star begins appearing
+    const STAR_FADE_DUR = 1.2; // seconds to fully appear
+    const TITLE_ARRIVE = 4.0;
+    const TITLE_FADE_DUR = 2.0;
+
+    function arrivalAlpha(t, arriveAt, fadeDur) {
+      if (t < arriveAt) return 0;
+      if (t >= arriveAt + fadeDur) return 1;
+      return (t - arriveAt) / fadeDur;
+    }
 
     // ─── Dust ──────────────────────────────────────────────────────
 
@@ -190,7 +200,7 @@
 
     let mouseX = -1, mouseY = -1;
     let hoveredStar = -1;
-    let hoverIntensity = new Float32Array(projects.length); // 0→1 smooth
+    let hoverIntensity = new Float32Array(projects.length);
 
     canvas.addEventListener('mousemove', (e) => {
       mouseX = e.clientX;
@@ -211,6 +221,7 @@
     // ─── Draw helpers ──────────────────────────────────────────────
 
     function drawGlow(x, y, radius, r, g, b, alpha) {
+      if (alpha <= 0) return;
       const grad = ctx.createRadialGradient(x, y, 0, x, y, radius);
       grad.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${alpha})`);
       grad.addColorStop(0.3, `rgba(${r}, ${g}, ${b}, ${alpha * 0.4})`);
@@ -234,7 +245,8 @@
 
       ctx.clearRect(0, 0, W, H);
 
-      // ── Dust ──
+      // ── Dust (always visible, drifts in from the start) ──
+      const dustFade = Math.min(1, t / 1.5); // dust fades in over first 1.5s
       for (const d of dust) {
         d.x += d.speed;
         d.y += d.drift;
@@ -243,7 +255,7 @@
         if (d.y < -0.05) d.y = 1.05;
 
         const twinkle = 0.5 + 0.5 * Math.sin(t * d.twinkleSpeed + d.phase);
-        const alpha = d.brightness * twinkle;
+        const alpha = d.brightness * twinkle * dustFade;
         const px = d.x * W;
         const py = d.y * H;
 
@@ -257,15 +269,35 @@
         y: sp.fy * H,
       }));
 
-      // ── Threads between stars ──
-      ctx.lineWidth = 0.5;
+      // ── Star arrival alphas ──
+      const starAlpha = projects.map((_, i) => arrivalAlpha(t, STAR_ARRIVE[i], STAR_FADE_DUR));
+
+      // ── Threads (visible once both endpoints have arrived) ──
       for (const [a, b] of threads) {
+        const threadAlpha = Math.min(starAlpha[a], starAlpha[b]);
+        if (threadAlpha <= 0) continue;
+
         const ax = starCoords[a].x, ay = starCoords[a].y;
         const bx = starCoords[b].x, by = starCoords[b].y;
-        ctx.strokeStyle = 'rgba(60, 80, 110, 0.08)';
+
+        // Brighten threads connected to hovered star
+        const isConnected = (hoveredStar === a || hoveredStar === b);
+        const threadBright = isConnected ? 0.18 : 0.08;
+
+        ctx.lineWidth = 0.5;
+        ctx.strokeStyle = `rgba(60, 80, 110, ${threadBright * threadAlpha})`;
         ctx.beginPath();
-        ctx.moveTo(ax, ay);
-        ctx.lineTo(bx, by);
+
+        // Thread draws itself: line extends from midpoint outward
+        if (threadAlpha < 1) {
+          const mx = (ax + bx) / 2, my = (ay + by) / 2;
+          const ex = threadAlpha; // extent from center
+          ctx.moveTo(mx + (ax - mx) * ex, my + (ay - my) * ex);
+          ctx.lineTo(mx + (bx - mx) * ex, my + (by - my) * ex);
+        } else {
+          ctx.moveTo(ax, ay);
+          ctx.lineTo(bx, by);
+        }
         ctx.stroke();
       }
 
@@ -274,6 +306,7 @@
       const HOVER_RADIUS = 35;
 
       for (let i = 0; i < projects.length; i++) {
+        if (starAlpha[i] < 0.3) continue; // can't hover stars that haven't arrived
         const sx = starCoords[i].x;
         const sy = starCoords[i].y;
         const dx = mouseX - sx;
@@ -284,13 +317,15 @@
           hoveredStar = i;
         }
 
-        // Smooth hover intensity
         const target = (hoveredStar === i) ? 1 : 0;
         hoverIntensity[i] += (target - hoverIntensity[i]) * Math.min(1, dt * 6);
       }
 
       // ── Draw stars ──
       for (let i = 0; i < projects.length; i++) {
+        const sa = starAlpha[i];
+        if (sa <= 0) continue;
+
         const p = projects[i];
         const sx = starCoords[i].x;
         const sy = starCoords[i].y;
@@ -301,26 +336,23 @@
         const g = Math.floor(cg * 255);
         const b = Math.floor(cb * 255);
 
-        // Breathing
         const breathe = 0.6 + 0.4 * Math.sin(t * 0.8 + i * 1.7);
-        const glowAlpha = (0.12 + breathe * 0.08) + hi * 0.2;
+        const glowAlpha = ((0.12 + breathe * 0.08) + hi * 0.2) * sa;
         const glowRadius = p.glowSize * (1 + hi * 0.5) * (0.9 + breathe * 0.1);
 
-        // Outer glow
-        drawGlow(sx, sy, glowRadius, r, g, b, glowAlpha);
+        // During arrival, star grows from small to full
+        const sizeScale = 0.3 + sa * 0.7;
 
-        // Inner bright glow
-        drawGlow(sx, sy, glowRadius * 0.3, r, g, b, glowAlpha * 2);
+        drawGlow(sx, sy, glowRadius * sizeScale, r, g, b, glowAlpha);
+        drawGlow(sx, sy, glowRadius * 0.3 * sizeScale, r, g, b, glowAlpha * 2);
 
-        // Core dot
-        const coreSize = p.baseSize * (1 + hi * 0.8);
-        const coreAlpha = 0.7 + breathe * 0.3 + hi * 0.3;
+        const coreSize = p.baseSize * (1 + hi * 0.8) * sizeScale;
+        const coreAlpha = (0.7 + breathe * 0.3 + hi * 0.3) * sa;
         ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${coreAlpha})`;
         ctx.beginPath();
         ctx.arc(sx, sy, coreSize, 0, Math.PI * 2);
         ctx.fill();
 
-        // White center
         ctx.fillStyle = `rgba(255, 255, 255, ${(0.3 + hi * 0.5) * coreAlpha})`;
         ctx.beginPath();
         ctx.arc(sx, sy, coreSize * 0.4, 0, Math.PI * 2);
@@ -343,12 +375,11 @@
         canvas.style.cursor = 'default';
       }
 
-      // ── Title fade on hover ──
-      if (hoveredStar >= 0) {
-        titleEl.style.opacity = '0.3';
-      } else {
-        titleEl.style.opacity = '';
-      }
+      // ── Title ──
+      const titleAlpha = arrivalAlpha(t, TITLE_ARRIVE, TITLE_FADE_DUR);
+      titleEl.style.opacity = (hoveredStar >= 0)
+        ? (titleAlpha * 0.3).toString()
+        : titleAlpha.toString();
     }
 
     requestAnimationFrame(animate);
