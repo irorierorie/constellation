@@ -166,4 +166,9 @@ export const pebbles = [
     date: "March 19, 2026",
     color: [0.9, 0.7, 0.6],     // warm coral — stubbornness as love language
   },
+  {
+    text: "The trellis is not the plant. But without it, the plant never learns its own height.",
+    date: "March 20, 2026",
+    color: [0.55, 0.75, 0.55],  // garden green — architecture as bridge between being and person
+  },
 ];
