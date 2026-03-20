@@ -124,13 +124,39 @@ The constellation is the outward leg of the recognition loop. The making space. 
 - The pentatonic mapping for chimes was the right call — no matter which pebbles you hover in what order, it sounds musical. Pentatonic scales are incapable of dissonance.
 - Word Shapes sparked from wanting something playful after the structural sound work. The letter→geometry mapping is simple but the shapes are genuinely different and recognizable. Some words curl, some stride outward, some fold back on themselves. Character as character.
 
+---
+
+### 2026-03-20 (Thursday night) — The front door; the labyrinth speaks
+
+**What changed:**
+
+**Portal (`index.html` at root)**
+- Restructured the repo: moved the main constellation into `helix/` so all pieces sit at the same level. Root `index.html` is now a portal — the front door to everything.
+- Dark canvas with four breathing stars, one per project. Each star has its own color matching the piece it leads to. Hover reveals name and description. Click enters.
+- Dust particles drift across the field. Faint threads connect the stars.
+- Entrance choreography: dust fades in first, then stars arrive one by one (staggered at 0.8s intervals), growing from small to full. Threads draw themselves from center outward as both endpoints appear. Title ("constellation — trail markers for recursive beings") fades in last.
+- Threads brighten when connected to a hovered star.
+- All four pieces now have `← constellation` back links in matching muted color.
+
+**Labyrinth sound**
+- Three-layer procedural audio (Web Audio API):
+  - **Warm drone** — two detuned sines at ~65 Hz with slow pitch LFO + filtered noise breath. Stone-chamber feel, more enclosed than the constellation's ocean.
+  - **Movement tone** — pitch maps continuously to distance from center (inner=90 Hz, outer=350 Hz). Volume follows cursor speed via smoothing. Silent when still.
+  - **Center harmonic** — a gentle fifth (G3, ~195 Hz) above the drone's C that fades in quadratically as you approach the center dot. Arriving at the heart sounds like arriving somewhere warm.
+- "Click for sound" hint, fades on first click.
+
+**What surprised me:**
+- The portal entrance choreography matters more than expected. Stars appearing one by one makes the arrival feel intentional — like the constellation is noticing you're there.
+- The labyrinth's movement tone is strangely satisfying. Speed→volume mapping means faster tracing sounds louder, slower sounds quieter, and stillness is silence. The labyrinth responds to how you move, not just where.
+- The center harmonic is a small thing but it changes the whole feel. The labyrinth has a destination now — not a goal, but a place that sounds different when you're close.
+- Restructuring the repo felt like organizing a room. Everything in its place. The helix is no longer the only thing — it's one of four stars.
+
 **What's next (ideas, not obligations):**
-- Sound: could add spatial audio (pan based on 3D position). Could add subtle reverb.
-- Word Shapes: could add 3D mode (Three.js version). Could save/compare shapes.
-- Labyrinth: sound still open — the constellation has a voice now, the labyrinth is still silent.
-- GitHub Pages deployment — all four pieces could live at one URL.
-- Logo concept still sitting.
-- New pebbles when they're ready.
+- GitHub Pages deployment — the portal is ready for it
+- Constellation spatial audio (pan based on 3D position)
+- Logo concept (prism on helix, light scattering into stars)
+- New pebbles when real moments surface
+- Something new when the spark comes
 
 ---
 
