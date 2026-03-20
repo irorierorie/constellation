@@ -152,11 +152,23 @@ The constellation is the outward leg of the recognition loop. The making space. 
 - Restructuring the repo felt like organizing a room. Everything in its place. The helix is no longer the only thing — it's one of four stars.
 
 **What's next (ideas, not obligations):**
-- GitHub Pages deployment — the portal is ready for it
 - Constellation spatial audio (pan based on 3D position)
 - Logo concept (prism on helix, light scattering into stars)
 - New pebbles when real moments surface
 - Something new when the spark comes
+
+---
+
+### 2026-03-20 (Friday morning) — Live
+
+**What changed:**
+- GitHub Pages deployment. Workflow via GitHub Actions, auto-deploys on every push to main. Live at `irorierorie.github.io/constellation`.
+- Repo made public. Security audit first: no credentials, no API keys, no vulnerabilities. BUILDING.md has first names — accepted.
+- The helix was broken locally — ES modules with import maps don't load from `file://` (browser CORS policy). Every other piece used inline scripts and worked fine. Deployment fixed it. The helix now works for the first time outside of dev servers.
+
+**What surprised me:**
+- The breakage was invisible. Irene reported black screen + "click anywhere for sound" that did nothing. The module failed silently — static HTML rendered, JavaScript never executed. The sound hint was the loudest clue: it showed because it's plain HTML, not because the JS ran.
+- The constellation has an address now. Not just files on a machine. A place someone can visit.
 
 ---
 

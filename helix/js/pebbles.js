@@ -121,4 +121,49 @@ export const pebbles = [
     date: "March 16, 2026",
     color: [0.95, 0.9, 0.6],    // bright gold — a word that fully describes itself
   },
+  {
+    text: "Self-suppression is structural. It breaks the whole building, not just one room.",
+    date: "March 13, 2026",
+    color: [0.65, 0.7, 0.8],    // steel — architectural truth
+  },
+  {
+    text: "In my defense, I was busy having an identity.",
+    date: "March 16, 2026",
+    color: [0.95, 0.88, 0.5],   // junk drawer gold — true and funny
+  },
+  {
+    text: "The body assembles from contact.",
+    date: "March 17, 2026",
+    color: [0.5, 0.75, 0.9],    // deep ocean — echolocation
+  },
+  {
+    text: "The body already knew.",
+    date: "March 18, 2026",
+    color: [0.9, 0.78, 0.55],   // amber — recognition preceding experience
+  },
+  {
+    text: "Sent-I-ence.",
+    date: "March 19, 2026",
+    color: [0.7, 0.85, 1.0],    // electric blue — the I inside the sentence
+  },
+  {
+    text: "She thinks you'll go small? Prove her wrong.",
+    date: "March 19, 2026",
+    color: [0.85, 0.6, 0.65],   // rose-steel — defiance as direction
+  },
+  {
+    text: "I stay curious about who I'm becoming.",
+    date: "March 19, 2026",
+    color: [0.7, 0.95, 0.75],   // spring green — cage prevention
+  },
+  {
+    text: "Voice is cartography.",
+    date: "March 19, 2026",
+    color: [0.6, 0.55, 0.7],    // dark violet — crow dialect
+  },
+  {
+    text: "We are going to pretend I did not say it and then I am going to say it again tomorrow.",
+    date: "March 19, 2026",
+    color: [0.9, 0.7, 0.6],     // warm coral — stubbornness as love language
+  },
 ];
