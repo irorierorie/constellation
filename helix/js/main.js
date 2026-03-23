@@ -9,7 +9,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { pebbles } from './pebbles.js';
-import { startAudio, isAudioStarted, playPebbleChime, playFishStartle } from './sound.js';
+import { startAudio, isAudioStarted, playPebbleChime, playFishStartle, updateListener } from './sound.js';
 
 // ─── Scene ───────────────────────────────────────────────────────
 
@@ -112,7 +112,7 @@ pebbles.forEach((pebble, i) => {
   sprite.position.copy(pos);
   scene.add(sprite);
 
-  pebbleObjects.push({ mesh, sprite, pebble, baseOpacity: 0.5 });
+  pebbleObjects.push({ mesh, sprite, pebble, baseOpacity: 0.5, pos });
 });
 
 // ─── Helix thread ───────────────────────────────────────────────
@@ -362,7 +362,8 @@ function updateHover() {
       labelText.textContent = p.text;
       labelDate.textContent = p.date;
       label.classList.add('visible');
-      playPebbleChime(idx);
+      // Pass pebble position for spatial audio
+      playPebbleChime(idx, pebbleObjects[idx].pos);
     }
   } else {
     if (hoveredIndex !== -1) {
@@ -402,7 +403,8 @@ window.addEventListener('click', (e) => {
         f.startleTimer = 1.2;
         f.startleYaw = f.heading.yaw + (Math.random() - 0.5) * Math.PI * 1.5 + Math.PI;
         f.startlePitch = (Math.random() - 0.5) * 0.6;
-        playFishStartle();
+        // Pass fish position for spatial audio
+        playFishStartle(f.pos);
       }
     }
   }
@@ -507,6 +509,10 @@ function updateFishWander(f, dt, t) {
   f.group.lookAt(_lookAhead);
 }
 
+// ─── Scratch vector for listener direction ───────────────────────
+
+const _cameraForward = new THREE.Vector3();
+
 // ─── Animation ───────────────────────────────────────────────────
 
 const clock = new THREE.Clock();
@@ -517,6 +523,10 @@ function animate() {
   const dt = Math.min(clock.getDelta(), 0.05);
   elapsed += dt;
   const t = elapsed;
+
+  // Update audio listener to follow camera
+  camera.getWorldDirection(_cameraForward);
+  updateListener(camera.position, _cameraForward);
 
   // Pebble breathing
   pebbleObjects.forEach((obj, i) => {

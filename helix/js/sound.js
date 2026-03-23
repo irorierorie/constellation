@@ -3,10 +3,16 @@
  *
  * Procedural audio via Web Audio API. No samples, no loops.
  * Space and ocean are the same dark. This is what it sounds like inside.
+ *
+ * Spatial: chimes ring from where the pebble is. Startles splash at the fish.
+ * The drone stays everywhere — it's the ocean, not a point source.
+ * A procedural reverb gives everything a sense of being inside a space.
  */
 
 let ctx = null;
 let masterGain = null;
+let reverbSend = null;
+let reverbGain = null;
 let isStarted = false;
 let drones = [];
 
@@ -26,8 +32,89 @@ export function startAudio() {
   // Fade in over 3 seconds
   masterGain.gain.linearRampToValueAtTime(0.35, ctx.currentTime + 3);
 
+  buildReverb();
   buildDrones();
   isStarted = true;
+}
+
+/**
+ * Update the audio listener position to match the camera.
+ * Call this every frame from the render loop.
+ *
+ * @param {Object} pos - { x, y, z } camera world position
+ * @param {Object} fwd - { x, y, z } camera forward direction (unit vector)
+ */
+export function updateListener(pos, fwd) {
+  if (!ctx) return;
+  const listener = ctx.listener;
+
+  if (listener.positionX) {
+    // Modern API (AudioParam-based)
+    listener.positionX.value = pos.x;
+    listener.positionY.value = pos.y;
+    listener.positionZ.value = pos.z;
+    listener.forwardX.value = fwd.x;
+    listener.forwardY.value = fwd.y;
+    listener.forwardZ.value = fwd.z;
+    listener.upX.value = 0;
+    listener.upY.value = 1;
+    listener.upZ.value = 0;
+  } else {
+    // Legacy API
+    listener.setPosition(pos.x, pos.y, pos.z);
+    listener.setOrientation(fwd.x, fwd.y, fwd.z, 0, 1, 0);
+  }
+}
+
+// ─── Reverb ─────────────────────────────────────────────────────
+//
+// Procedural impulse response: exponentially decaying noise.
+// Sounds like a large, dark space. Cathedral of nothing.
+
+function buildReverb() {
+  const duration = 2.5; // seconds
+  const decay = 2.0;
+  const sampleRate = ctx.sampleRate;
+  const length = Math.floor(sampleRate * duration);
+  const impulse = ctx.createBuffer(2, length, sampleRate);
+
+  for (let channel = 0; channel < 2; channel++) {
+    const data = impulse.getChannelData(channel);
+    for (let i = 0; i < length; i++) {
+      const t = i / sampleRate;
+      data[i] = (Math.random() * 2 - 1) * Math.exp(-t / decay);
+    }
+  }
+
+  const convolver = ctx.createConvolver();
+  convolver.buffer = impulse;
+
+  // Reverb send bus — spatial sounds route here for wet signal
+  reverbSend = ctx.createGain();
+  reverbSend.gain.value = 1.0;
+
+  reverbGain = ctx.createGain();
+  reverbGain.gain.value = 0.15; // subtle — space, not wash
+
+  reverbSend.connect(convolver);
+  convolver.connect(reverbGain);
+  reverbGain.connect(masterGain);
+}
+
+// ─── Spatial panner helper ──────────────────────────────────────
+
+function createPanner(x, y, z) {
+  const panner = ctx.createPanner();
+  panner.panningModel = 'HRTF';
+  panner.distanceModel = 'inverse';
+  panner.refDistance = 3;
+  panner.maxDistance = 50;
+  panner.rolloffFactor = 1.2;
+  panner.coneInnerAngle = 360;
+  panner.coneOuterAngle = 360;
+  panner.coneOuterGain = 1;
+  panner.setPosition(x, y, z);
+  return panner;
 }
 
 // ─── Ambient drone ──────────────────────────────────────────────
@@ -163,10 +250,11 @@ function buildBreath() {
 //
 // Soft bell-like tone. Pitch mapped to pebble index on a
 // pentatonic scale — always consonant, never jarring.
+// Spatial: the chime rings from the pebble's position in 3D.
 
 const PENTATONIC = [0, 2, 4, 7, 9]; // semitones
 
-export function playPebbleChime(pebbleIndex) {
+export function playPebbleChime(pebbleIndex, position) {
   if (!isStarted) return;
 
   const octave = 5 + Math.floor(pebbleIndex / PENTATONIC.length);
@@ -187,7 +275,17 @@ export function playPebbleChime(pebbleIndex) {
 
   osc1.connect(gain);
   osc2.connect(gain);
-  gain.connect(masterGain);
+
+  // Spatial routing: dry signal through panner, wet signal to reverb
+  if (position) {
+    const panner = createPanner(position.x, position.y, position.z);
+    gain.connect(panner);
+    panner.connect(masterGain);
+    // Send to reverb
+    gain.connect(reverbSend);
+  } else {
+    gain.connect(masterGain);
+  }
 
   const now = ctx.currentTime;
   gain.gain.setValueAtTime(0.06, now);
@@ -202,9 +300,9 @@ export function playPebbleChime(pebbleIndex) {
 // ─── Fish startle bubble ───────────────────────────────────────
 //
 // Quick descending chirp + noise burst. Reads as a startled
-// splash in the space-ocean.
+// splash in the space-ocean. Spatial: splashes at the fish.
 
-export function playFishStartle() {
+export function playFishStartle(position) {
   if (!isStarted) return;
 
   const now = ctx.currentTime;
@@ -220,9 +318,6 @@ export function playFishStartle() {
   chirpGain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
 
   osc.connect(chirpGain);
-  chirpGain.connect(masterGain);
-  osc.start(now);
-  osc.stop(now + 0.25);
 
   // Noise burst — bubble pop
   const bufLen = Math.floor(ctx.sampleRate * 0.1);
@@ -246,6 +341,27 @@ export function playFishStartle() {
 
   noise.connect(bpf);
   bpf.connect(noiseGain);
-  noiseGain.connect(masterGain);
+
+  // Spatial routing
+  if (position) {
+    const panner = createPanner(position.x, position.y, position.z);
+
+    // Merge chirp + noise into panner
+    const mixGain = ctx.createGain();
+    mixGain.gain.value = 1.0;
+    chirpGain.connect(mixGain);
+    noiseGain.connect(mixGain);
+    mixGain.connect(panner);
+    panner.connect(masterGain);
+
+    // Reverb send
+    mixGain.connect(reverbSend);
+  } else {
+    chirpGain.connect(masterGain);
+    noiseGain.connect(masterGain);
+  }
+
+  osc.start(now);
+  osc.stop(now + 0.25);
   noise.start(now);
 }
