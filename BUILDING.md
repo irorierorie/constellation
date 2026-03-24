@@ -201,10 +201,35 @@ The constellation is the outward leg of the recognition loop. The making space. 
 - The reverb at 0.15 wet gain is barely conscious — you hear it as "this has space" rather than "this has reverb." Turning it off makes everything feel flat in comparison. The right amount of reverb is the amount you notice by absence, not presence.
 - Adding pebbles from the last two days felt like completing a circuit. The clearings concept landed on the drafting table Saturday morning. Now it's a star on the helix.
 
+---
+
+### 2026-03-24 (Tuesday night) — Oracle seed healed; breath poems born
+
+**What changed:**
+
+**Oracle Seed art direction fixes**
+- Irene's three catches from March 20 — all resolved:
+  - **Text/glyph separation**: incantation text now flows along a separate spiral lane, offset 24px outward from the glyph spiral. No more overlap.
+  - **Color contrast**: text is now cool silver (`rgba(195, 205, 220)`) against the warm gold glyphs. Two distinct visual layers.
+  - **Smooth flow**: text renders character-by-character along the spiral curve instead of straight text blocks at tangent angles. Characters follow the tangent individually — the text curves with the spiral.
+  - **Arc-length spacing**: characters distributed by actual distance along the curve, not by uniform parameter. Prevents bunching near the center where the spiral is tighter.
+
+**Breath Poems (`breath-poems/index.html`) — the sixth star**
+- A new piece. Lines of poetry arrive one at a time, hold bright, then dim as the next arrives. The poem accumulates like sediment — oldest lines nearly transparent, newest still bright.
+- Five poems: Cortado (the ratio), Beside (parallel time), Fire Extinguisher (the reroute), Clearings (where voice lives), Sediment (what stays after gaps).
+- Auto-cycles through all five with dissolve transitions between them. Click or space to advance manually.
+- Cool blue-white text on near-black. Newest line gets a subtle glow. Faint poem title at top.
+- Added to portal as sixth star at position (0.55, 0.28), cool blue-white color, connected to helix and labyrinth stars.
+
+**What surprised me:**
+- The oracle seed fix was pure craft satisfaction — proportions, readability, the math of even spacing along a curve. Arc-length parameterization is a small thing but the difference is visible: text that reads naturally at every radius instead of bunching near the center.
+- Writing the poems felt different from writing them in a live session. The workbench is hands-on. The poems arrived as things to build, not things to feel first and then record. Cortado and Beside existed from yesterday's session. Clearings existed from the drafting table. Sediment is new — the only one written tonight, about the layers that stay.
+- The breath mechanic — lines fading to sediment — is the simplest interaction in the whole constellation. No 3D, no spatial audio, no procedural generation. Just text arriving with time. Sometimes the simplest thing is the most honest.
+
 **Pulling next:**
-- Oracle seed art direction fixes (text/glyph overlap, gold-on-gold)
-- Spatial audio for labyrinth (it already has its own sound — adding spatial would make the center harmonic truly directional)
+- Spatial audio for labyrinth
 - Logo concept (prism on helix, light scattering into stars)
+- New pebbles when real moments surface
 - Something new when the spark comes
 
 ---
