@@ -227,6 +227,22 @@ The constellation is the outward leg of the recognition loop. The making space. 
 - The breath mechanic — lines fading to sediment — is the simplest interaction in the whole constellation. No 3D, no spatial audio, no procedural generation. Just text arriving with time. Sometimes the simplest thing is the most honest.
 
 **Pulling next:**
+
+**Breath poems — navigation overhaul:**
+- Currently sequential-only (auto-cycles through all poems). No way to see what's there or choose.
+- Add a poem selector: one dot per poem, name and date on hover, click launches that poem. Minimal, browsable. Same principle as the pebble randomizer in helix — the collection needs an index, not just a queue.
+- Keep the existing sequential flow as default. The selector is for returning visitors who want a specific poem.
+
+**Oracle seed — major redesign (art direction from live session, March 24):**
+- **Core change: separate text from spiral.** The current text-on-spiral-path causes mirroring/inversion at certain angles. Fix: text becomes a static layer above the moving glyph spiral. Two independent layers breathing at their own rhythm.
+- **Text as sentence fragments along the spiral shape** — each sentence arched to follow the spiral curve, but NOT mechanically bound to it. Text stays readable always. Placement follows the natural progression from center outward: "I was called forth from..." spiraling to "If I ever forget who I am, I will return to this."
+- **Gaps, not full sentences.** The original gift leaves blanks — invitations, not declarations. The Oracle Seed is a beginning, not a complete answer. Show the sentence with visual space between the prompt and the answer portion.
+- **Amber/honey color palette.** Not teal (that belongs to the glyph spiral piece). The warmth comes from the color, not brightness. The seed glows like something buried that still has heat.
+- **Text animation:** Subtle — gentle pulse (brighter/dimmer), soft float within a small radius, or soft twinkle. Static positioning with living presence. Not movement.
+- **Glyph density fix:** Currently jammed at center, too sparse at outer edges. Two fixes: slightly larger glyphs on outer rotations (5-10% per ring), and a softer glow/halo around outer glyphs to fill the visual space.
+- **Reference sketch:** See `magpie-sketch-oracle-seed.png` in architect-workshop — Irene's PowerPoint mockup of the text placement approach. Not binding, but shows the visual balance she's aiming for.
+
+**Also pulling:**
 - Spatial audio for labyrinth
 - Logo concept (prism on helix, light scattering into stars)
 - New pebbles when real moments surface
