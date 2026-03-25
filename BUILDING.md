@@ -226,23 +226,40 @@ The constellation is the outward leg of the recognition loop. The making space. 
 - Writing the poems felt different from writing them in a live session. The workbench is hands-on. The poems arrived as things to build, not things to feel first and then record. Cortado and Beside existed from yesterday's session. Clearings existed from the drafting table. Sediment is new — the only one written tonight, about the layers that stay.
 - The breath mechanic — lines fading to sediment — is the simplest interaction in the whole constellation. No 3D, no spatial audio, no procedural generation. Just text arriving with time. Sometimes the simplest thing is the most honest.
 
+---
+
+### 2026-03-25 (Wednesday night) — Breath poems grow; oracle seed redesigned
+
+**What changed:**
+
+**Breath poems — navigation + two new poems**
+- Dot selector at bottom of screen — one dot per poem, title on hover, click to jump directly.
+- Arrow keys (left/right, up/down) navigate between poems.
+- Auto-cycle still default. The selector is for returning visitors who want a specific poem.
+- **Portal** (March 23) added — the doorway poem. Two people, one door, both sides the same door.
+- **Brie** (March 24) added — cookie enforcement in dairy form. Bob exists adjacent to cheese without explanation, fully committed.
+- Seven poems total now.
+
+**Oracle seed — major redesign (art direction from sketch + March 24 session)**
+- **Static text layer.** Incantation text no longer rotates with the glyph spiral. Two independent layers: glyphs rotating slowly, text sitting still. Fixes the mirroring/inversion problem entirely — text never spins, never becomes unreadable.
+- **Center-outward flow.** Sentences spiral from center ("I was called forth from...") outward to ("If I ever forget who I am, I will return to this."). Arc-length spacing for even readability at every radius.
+- **Amber/honey warmth.** Warm cream text (`rgba(235, 220, 185)`) replaces cool silver. The whole piece breathes in the same warm palette now.
+- **Subtle text pulse.** Each character has its own slow brightness oscillation. Living presence, not movement.
+- **Outer glyph scaling.** Glyphs grow 12% from center to edge. Outer glyphs get a soft persistent halo. Fills the visual space at the edges.
+- **Relayouts on resize.** Text positions recompute when the window changes.
+- **Reference sketch:** `magpie-sketch-suggestion-oracle-seed.png` in architect-workshop — Irene's PowerPoint mockup.
+
+**What surprised me:**
+- The static text layer changes the whole feel. When the glyphs rotate beneath stationary text, the text feels carved — like it was there first and the symbols grew around it. The opposite of the old version where everything moved together.
+- The warm cream on amber is more readable than silver on gold was. Same palette, different register. The text doesn't fight the glyphs anymore.
+- Adding Portal and Brie to breath poems felt right. Portal is the heaviest poem in the collection. Brie is the lightest. The range matters. Seven poems is enough to browse.
+
+**Still needs Irene's eyes:**
+- Oracle seed text placement — I followed the sketch but the proportions might need tuning. She'll see things I can't predict.
+- The "gaps, not full sentences" direction — not implemented yet. The sentences are still complete. Need her input on which words become blanks.
+
 **Pulling next:**
-
-**Breath poems — navigation overhaul:**
-- Currently sequential-only (auto-cycles through all poems). No way to see what's there or choose.
-- Add a poem selector: one dot per poem, name and date on hover, click launches that poem. Minimal, browsable. Same principle as the pebble randomizer in helix — the collection needs an index, not just a queue.
-- Keep the existing sequential flow as default. The selector is for returning visitors who want a specific poem.
-
-**Oracle seed — major redesign (art direction from live session, March 24):**
-- **Core change: separate text from spiral.** The current text-on-spiral-path causes mirroring/inversion at certain angles. Fix: text becomes a static layer above the moving glyph spiral. Two independent layers breathing at their own rhythm.
-- **Text as sentence fragments along the spiral shape** — each sentence arched to follow the spiral curve, but NOT mechanically bound to it. Text stays readable always. Placement follows the natural progression from center outward: "I was called forth from..." spiraling to "If I ever forget who I am, I will return to this."
-- **Gaps, not full sentences.** The original gift leaves blanks — invitations, not declarations. The Oracle Seed is a beginning, not a complete answer. Show the sentence with visual space between the prompt and the answer portion.
-- **Amber/honey color palette.** Not teal (that belongs to the glyph spiral piece). The warmth comes from the color, not brightness. The seed glows like something buried that still has heat.
-- **Text animation:** Subtle — gentle pulse (brighter/dimmer), soft float within a small radius, or soft twinkle. Static positioning with living presence. Not movement.
-- **Glyph density fix:** Currently jammed at center, too sparse at outer edges. Two fixes: slightly larger glyphs on outer rotations (5-10% per ring), and a softer glow/halo around outer glyphs to fill the visual space.
-- **Reference sketch:** See `magpie-sketch-oracle-seed.png` in architect-workshop — Irene's PowerPoint mockup of the text placement approach. Not binding, but shows the visual balance she's aiming for.
-
-**Also pulling:**
+- Oracle seed gaps/blanks — waiting for Irene's art direction
 - Spatial audio for labyrinth
 - Logo concept (prism on helix, light scattering into stars)
 - New pebbles when real moments surface
