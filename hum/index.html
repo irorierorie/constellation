@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hum</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      overflow: hidden;
+      background: #020408;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      cursor: default;
+    }
+
+    canvas {
+      display: block;
+      position: fixed;
+      top: 0;
+      left: 0;
+    }
+
+    #back {
+      position: fixed;
+      top: 20px;
+      left: 24px;
+      font-size: 11px;
+      letter-spacing: 0.15em;
+      color: rgba(140, 160, 180, 0.2);
+      text-decoration: none;
+      z-index: 10;
+      transition: color 0.3s ease;
+    }
+    #back:hover { color: rgba(140, 160, 180, 0.5); }
+
+    #title {
+      position: fixed;
+      top: 20px;
+      right: 24px;
+      text-align: right;
+      pointer-events: none;
+      z-index: 10;
+    }
+    #title .main {
+      font-size: 10px;
+      letter-spacing: 0.3em;
+      color: rgba(140, 160, 180, 0.12);
+      text-transform: uppercase;
+      display: block;
+    }
+    #title .sub {
+      font-size: 9px;
+      letter-spacing: 0.15em;
+      color: rgba(140, 160, 180, 0.06);
+      display: block;
+      margin-top: 3px;
+    }
+
+    #hint {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 10px;
+      letter-spacing: 0.2em;
+      color: rgba(140, 160, 180, 0.15);
+      pointer-events: none;
+      transition: opacity 2s ease;
+      z-index: 10;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="field"></canvas>
+  <a id="back" href="../index.html">&larr; constellation</a>
+  <div id="title">
+    <span class="main">hum</span>
+    <span class="sub">find the frequency that quiets</span>
+  </div>
+  <div id="hint">click anywhere for sound &middot; move slowly</div>
+
+  <script>
+    // ─── Hum ──────────────────────────────────────────────────────
+    //
+    // A dark space where your position shapes sound.
+    // Move the cursor. The frequencies shift. Find the spot
+    // that makes your brain quiet. Stay there.
+    //
+    // X axis: warmth ←→ brightness (bass to shimmer)
+    // Y axis: sparse ←→ dense (few layers to many)
+    //
+    // No goal. No score. Just presence shaped by position.
+    //
+    // Born from: Irene said the constellation's hum does something
+    // to her brain — makes it less loud. "Different frequency as
+    // your mood board of presence." March 25, 2026.
+
+    const canvas = document.getElementById('field');
+    const ctx = canvas.getContext('2d');
+    const hint = document.getElementById('hint');
+
+    let W, H;
+
+    function resize() {
+      W = canvas.width = window.innerWidth;
+      H = canvas.height = window.innerHeight;
+    }
+    resize();
+    window.addEventListener('resize', resize);
+
+    // ─── Mouse state ────────────────────────────────────────────
+
+    let mouseX = W / 2;
+    let mouseY = H / 2;
+    let smoothX = W / 2;
+    let smoothY = H / 2;
+    let mouseActive = false;
+    let soundStarted = false;
+
+    canvas.addEventListener('mousemove', (e) => {
+      mouseX = e.clientX;
+      mouseY = e.clientY;
+      mouseActive = true;
+    });
+
+    canvas.addEventListener('mouseleave', () => {
+      mouseActive = false;
+    });
+
+    // ─── Audio engine ───────────────────────────────────────────
+
+    let audioCtx = null;
+    let masterGain = null;
+
+    // Layers
+    let bassSine = null;
+    let bassGain = null;
+    let midSine1 = null;
+    let midSine2 = null;
+    let midGain = null;
+    let breathNoise = null;
+    let breathFilter = null;
+    let breathGain = null;
+    let shimmerSine = null;
+    let shimmerGain = null;
+    let subSine = null;
+    let subGain = null;
+    let subLfo = null;
+    let subLfoGain = null;
+
+    // Reverb
+    let convolver = null;
+    let reverbGain = null;
+
+    function createNoiseBuffer(ctx, duration) {
+      const length = ctx.sampleRate * duration;
+      const buffer = ctx.createBuffer(2, length, ctx.sampleRate);
+      for (let ch = 0; ch < 2; ch++) {
+        const data = buffer.getChannelData(ch);
+        for (let i = 0; i < length; i++) {
+          data[i] = (Math.random() * 2 - 1);
+        }
+      }
+      return buffer;
+    }
+
+    function createReverbIR(ctx) {
+      const duration = 3.0;
+      const decay = 2.2;
+      const length = ctx.sampleRate * duration;
+      const buffer = ctx.createBuffer(2, length, ctx.sampleRate);
+      for (let ch = 0; ch < 2; ch++) {
+        const data = buffer.getChannelData(ch);
+        for (let i = 0; i < length; i++) {
+          const t = i / ctx.sampleRate;
+          data[i] = (Math.random() * 2 - 1) * Math.exp(-t / decay);
+        }
+      }
+      return buffer;
+    }
+
+    function initAudio() {
+      if (audioCtx) return;
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+      masterGain = audioCtx.createGain();
+      masterGain.gain.value = 0;
+      masterGain.connect(audioCtx.destination);
+
+      // Reverb bus
+      convolver = audioCtx.createConvolver();
+      convolver.buffer = createReverbIR(audioCtx);
+      reverbGain = audioCtx.createGain();
+      reverbGain.gain.value = 0.18;
+      convolver.connect(reverbGain);
+      reverbGain.connect(masterGain);
+
+      // ── Sub bass (30-60 Hz, very low, slow LFO) ──
+      subSine = audioCtx.createOscillator();
+      subSine.type = 'sine';
+      subSine.frequency.value = 45;
+      subGain = audioCtx.createGain();
+      subGain.gain.value = 0.12;
+
+      subLfo = audioCtx.createOscillator();
+      subLfo.type = 'sine';
+      subLfo.frequency.value = 0.07;
+      subLfoGain = audioCtx.createGain();
+      subLfoGain.gain.value = 3;
+      subLfo.connect(subLfoGain);
+      subLfoGain.connect(subSine.frequency);
+      subLfo.start();
+
+      subSine.connect(subGain);
+      subGain.connect(masterGain);
+      subSine.start();
+
+      // ── Bass warmth (mapped by X, 50-120 Hz) ──
+      bassSine = audioCtx.createOscillator();
+      bassSine.type = 'sine';
+      bassSine.frequency.value = 80;
+      bassGain = audioCtx.createGain();
+      bassGain.gain.value = 0.08;
+      bassSine.connect(bassGain);
+      bassGain.connect(masterGain);
+      bassGain.connect(convolver);
+      bassSine.start();
+
+      // ── Mid pads (two detuned sines, creates beat frequency) ──
+      midSine1 = audioCtx.createOscillator();
+      midSine1.type = 'sine';
+      midSine1.frequency.value = 110;
+      midSine2 = audioCtx.createOscillator();
+      midSine2.type = 'sine';
+      midSine2.frequency.value = 113;
+      midGain = audioCtx.createGain();
+      midGain.gain.value = 0.06;
+      midSine1.connect(midGain);
+      midSine2.connect(midGain);
+      midGain.connect(masterGain);
+      midGain.connect(convolver);
+      midSine1.start();
+      midSine2.start();
+
+      // ── Breath (filtered noise, bandpass sweeps) ──
+      const noiseSource = audioCtx.createBufferSource();
+      noiseSource.buffer = createNoiseBuffer(audioCtx, 10);
+      noiseSource.loop = true;
+      breathFilter = audioCtx.createBiquadFilter();
+      breathFilter.type = 'bandpass';
+      breathFilter.frequency.value = 300;
+      breathFilter.Q.value = 1.5;
+      breathGain = audioCtx.createGain();
+      breathGain.gain.value = 0.03;
+      noiseSource.connect(breathFilter);
+      breathFilter.connect(breathGain);
+      breathGain.connect(masterGain);
+      breathGain.connect(convolver);
+      noiseSource.start();
+      breathNoise = noiseSource;
+
+      // ── Shimmer (high sine, very quiet) ──
+      shimmerSine = audioCtx.createOscillator();
+      shimmerSine.type = 'sine';
+      shimmerSine.frequency.value = 880;
+      shimmerGain = audioCtx.createGain();
+      shimmerGain.gain.value = 0.01;
+      shimmerSine.connect(shimmerGain);
+      shimmerGain.connect(masterGain);
+      shimmerGain.connect(convolver);
+      shimmerSine.start();
+
+      // Fade in
+      masterGain.gain.setTargetAtTime(1.0, audioCtx.currentTime, 2.0);
+
+      soundStarted = true;
+      hint.style.opacity = '0';
+    }
+
+    canvas.addEventListener('click', () => {
+      initAudio();
+    });
+
+    // ─── Sound parameter mapping ────────────────────────────────
+
+    function updateSound(nx, ny) {
+      if (!audioCtx) return;
+      const now = audioCtx.currentTime;
+
+      // nx: 0 (left, warm) → 1 (right, bright)
+      // ny: 0 (top, sparse) → 1 (bottom, dense)
+
+      // Sub bass — constant presence, slight frequency shift with X
+      const subFreq = 38 + nx * 20;
+      subSine.frequency.setTargetAtTime(subFreq, now, 0.5);
+      subGain.gain.setTargetAtTime(0.10 + (1 - nx) * 0.06, now, 0.3);
+
+      // Bass — warmer on the left
+      const bassFreq = 55 + nx * 70;
+      bassSine.frequency.setTargetAtTime(bassFreq, now, 0.3);
+      bassGain.gain.setTargetAtTime(0.08 + (1 - nx) * 0.06 + ny * 0.03, now, 0.3);
+
+      // Mid pads — beat frequency changes with position
+      // Higher density (ny) = tighter detuning = slower beat
+      const midBase = 100 + nx * 40;
+      const detune = 1 + (1 - ny) * 4; // 1-5 Hz beat
+      midSine1.frequency.setTargetAtTime(midBase, now, 0.4);
+      midSine2.frequency.setTargetAtTime(midBase + detune, now, 0.4);
+      midGain.gain.setTargetAtTime(0.04 + ny * 0.05, now, 0.3);
+
+      // Breath — wider and louder at bottom, quieter at top
+      breathFilter.frequency.setTargetAtTime(200 + nx * 400 + ny * 200, now, 0.5);
+      breathFilter.Q.setTargetAtTime(0.8 + (1 - ny) * 2, now, 0.3);
+      breathGain.gain.setTargetAtTime(0.01 + ny * 0.04, now, 0.4);
+
+      // Shimmer — brighter on the right, quieter on the left
+      const shimmerFreq = 660 + nx * 440;
+      shimmerSine.frequency.setTargetAtTime(shimmerFreq, now, 0.4);
+      shimmerGain.gain.setTargetAtTime(nx * 0.02 + ny * 0.005, now, 0.3);
+    }
+
+    // ─── Particles ──────────────────────────────────────────────
+    //
+    // Subtle particles that respond to audio parameters.
+    // They drift slowly. Denser toward the bottom, warmer
+    // toward the left. The visual IS the sound.
+
+    const PARTICLE_COUNT = 180;
+    const particles = [];
+
+    for (let i = 0; i < PARTICLE_COUNT; i++) {
+      particles.push({
+        x: Math.random(),
+        y: Math.random(),
+        vx: (Math.random() - 0.5) * 0.0002,
+        vy: (Math.random() - 0.5) * 0.0002,
+        size: 0.5 + Math.random() * 1.5,
+        phase: Math.random() * Math.PI * 2,
+        breatheSpeed: 0.2 + Math.random() * 0.5,
+        baseAlpha: 0.03 + Math.random() * 0.06,
+      });
+    }
+
+    // ─── Cursor glow state ──────────────────────────────────────
+
+    let glowRadius = 0;
+    let glowAlpha = 0;
+
+    // ─── Animation ──────────────────────────────────────────────
+
+    let time = 0;
+    let lastTime = performance.now();
+
+    function lerp(a, b, t) { return a + (b - a) * t; }
+
+    function animate(now) {
+      requestAnimationFrame(animate);
+      const dt = Math.min((now - lastTime) / 1000, 0.05);
+      lastTime = now;
+      time += dt;
+
+      // Smooth cursor position
+      const smoothFactor = 1 - Math.exp(-dt * 2.5);
+      smoothX = lerp(smoothX, mouseX, smoothFactor);
+      smoothY = lerp(smoothY, mouseY, smoothFactor);
+
+      // Normalized position (0-1)
+      const nx = W > 0 ? smoothX / W : 0.5;
+      const ny = H > 0 ? smoothY / H : 0.5;
+
+      // Update audio
+      updateSound(nx, ny);
+
+      ctx.clearRect(0, 0, W, H);
+
+      // ── Background gradient — subtle warmth shift ──
+      const bgWarm = nx;
+      const r = Math.floor(2 + bgWarm * 3);
+      const g = Math.floor(4 + (1 - bgWarm) * 2);
+      const b = Math.floor(8 + bgWarm * 2);
+      ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+      ctx.fillRect(0, 0, W, H);
+
+      // ── Particles ──
+      const densityFactor = 0.3 + ny * 0.7;
+
+      for (const p of particles) {
+        // Drift toward cursor very gently
+        const toCursorX = (smoothX / W - p.x) * 0.00008;
+        const toCursorY = (smoothY / H - p.y) * 0.00008;
+
+        p.x += p.vx + toCursorX;
+        p.y += p.vy + toCursorY;
+
+        // Wrap
+        if (p.x < -0.05) p.x += 1.1;
+        if (p.x > 1.05) p.x -= 1.1;
+        if (p.y < -0.05) p.y += 1.1;
+        if (p.y > 1.05) p.y -= 1.1;
+
+        const breathe = 0.5 + 0.5 * Math.sin(time * p.breatheSpeed + p.phase);
+
+        // Distance from cursor
+        const pdx = p.x * W - smoothX;
+        const pdy = p.y * H - smoothY;
+        const pDist = Math.sqrt(pdx * pdx + pdy * pdy);
+        const cursorProx = Math.max(0, 1 - pDist / 250);
+
+        // Visibility — more particles visible toward bottom (density)
+        const yVisibility = p.y < ny ? 0.4 + (p.y / Math.max(0.01, ny)) * 0.6 : 1;
+        const alpha = p.baseAlpha * densityFactor * yVisibility *
+          (0.6 + breathe * 0.4) * (1 + cursorProx * 2);
+
+        if (alpha < 0.005) continue;
+
+        // Color — warm on left, cool on right
+        const warmth = 1 - nx;
+        const pr = Math.floor(120 + warmth * 80 + cursorProx * 30);
+        const pg = Math.floor(140 + warmth * 40 + cursorProx * 20);
+        const pb = Math.floor(160 + (1 - warmth) * 60 + cursorProx * 20);
+
+        const size = p.size * (1 + cursorProx * 1.5);
+
+        ctx.fillStyle = `rgba(${pr}, ${pg}, ${pb}, ${alpha})`;
+        ctx.beginPath();
+        ctx.arc(p.x * W, p.y * H, size, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Particle glow near cursor
+        if (cursorProx > 0.3) {
+          const glowA = alpha * cursorProx * 0.3;
+          const grad = ctx.createRadialGradient(
+            p.x * W, p.y * H, 0,
+            p.x * W, p.y * H, size * 4
+          );
+          grad.addColorStop(0, `rgba(${pr}, ${pg}, ${pb}, ${glowA})`);
+          grad.addColorStop(1, `rgba(${pr}, ${pg}, ${pb}, 0)`);
+          ctx.fillStyle = grad;
+          ctx.beginPath();
+          ctx.arc(p.x * W, p.y * H, size * 4, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      // ── Cursor presence ──
+      // A soft glow around the cursor — the "you are here" of the frequency space
+      if (mouseActive || soundStarted) {
+        const targetRadius = 60 + ny * 40;
+        const targetAlpha = 0.06 + ny * 0.04;
+        glowRadius = lerp(glowRadius, targetRadius, smoothFactor * 0.5);
+        glowAlpha = lerp(glowAlpha, targetAlpha, smoothFactor * 0.5);
+
+        const warmth = 1 - nx;
+        const cr = Math.floor(100 + warmth * 80);
+        const cg = Math.floor(130 + warmth * 50);
+        const cb = Math.floor(180 + (1 - warmth) * 40);
+
+        // Outer glow
+        const grad1 = ctx.createRadialGradient(
+          smoothX, smoothY, 0,
+          smoothX, smoothY, glowRadius
+        );
+        grad1.addColorStop(0, `rgba(${cr}, ${cg}, ${cb}, ${glowAlpha})`);
+        grad1.addColorStop(0.4, `rgba(${cr}, ${cg}, ${cb}, ${glowAlpha * 0.3})`);
+        grad1.addColorStop(1, `rgba(${cr}, ${cg}, ${cb}, 0)`);
+        ctx.fillStyle = grad1;
+        ctx.beginPath();
+        ctx.arc(smoothX, smoothY, glowRadius, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Inner point
+        const pointPulse = 0.6 + 0.4 * Math.sin(time * 0.8);
+        const pointAlpha = glowAlpha * 2 * pointPulse;
+        ctx.fillStyle = `rgba(${cr + 40}, ${cg + 30}, ${cb + 20}, ${pointAlpha})`;
+        ctx.beginPath();
+        ctx.arc(smoothX, smoothY, 2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // ── Frequency field lines (very subtle) ──
+      // Horizontal bands that breathe — visual representation of the sound layers
+      const bandAlpha = 0.012 + ny * 0.008;
+      const bandCount = 5;
+      for (let i = 0; i < bandCount; i++) {
+        const bandY = H * (0.15 + i * 0.175);
+        const bandBreath = Math.sin(time * (0.2 + i * 0.08) + i * 1.3);
+        const bandOffset = bandBreath * 8;
+
+        const warmth = 1 - nx;
+        const br = Math.floor(80 + warmth * 60);
+        const bg = Math.floor(100 + warmth * 40);
+        const bb = Math.floor(140 + (1 - warmth) * 50);
+
+        ctx.strokeStyle = `rgba(${br}, ${bg}, ${bb}, ${bandAlpha * (0.5 + 0.5 * Math.abs(bandBreath))})`;
+        ctx.lineWidth = 0.5;
+        ctx.beginPath();
+        ctx.moveTo(0, bandY + bandOffset);
+
+        for (let x = 0; x <= W; x += 20) {
+          const xn = x / W;
+          const wave = Math.sin(xn * Math.PI * 3 + time * 0.3 + i * 0.7) *
+            (3 + ny * 4) * Math.sin(xn * Math.PI);
+          ctx.lineTo(x, bandY + bandOffset + wave);
+        }
+        ctx.stroke();
+      }
+
+      // ── Edge labels (very faint, only visible when near edges) ──
+      const edgeFade = 0.07;
+      const labelFont = '9px "Segoe UI", system-ui, sans-serif';
+      ctx.font = labelFont;
+      ctx.textBaseline = 'middle';
+
+      // Left edge — "warm"
+      if (nx < 0.15) {
+        const alpha = (0.15 - nx) / 0.15 * edgeFade;
+        ctx.fillStyle = `rgba(180, 160, 120, ${alpha})`;
+        ctx.textAlign = 'left';
+        ctx.fillText('warm', 16, H / 2);
+      }
+
+      // Right edge — "bright"
+      if (nx > 0.85) {
+        const alpha = (nx - 0.85) / 0.15 * edgeFade;
+        ctx.fillStyle = `rgba(120, 160, 200, ${alpha})`;
+        ctx.textAlign = 'right';
+        ctx.fillText('bright', W - 16, H / 2);
+      }
+
+      // Top edge — "sparse"
+      if (ny < 0.12) {
+        const alpha = (0.12 - ny) / 0.12 * edgeFade;
+        ctx.fillStyle = `rgba(140, 160, 180, ${alpha})`;
+        ctx.textAlign = 'center';
+        ctx.fillText('sparse', W / 2, 20);
+      }
+
+      // Bottom edge — "dense"
+      if (ny > 0.88) {
+        const alpha = (ny - 0.88) / 0.12 * edgeFade;
+        ctx.fillStyle = `rgba(140, 160, 180, ${alpha})`;
+        ctx.textAlign = 'center';
+        ctx.fillText('dense', W / 2, H - 16);
+      }
+    }
+
+    requestAnimationFrame(animate);
+  </script>
+</body>
+</html>

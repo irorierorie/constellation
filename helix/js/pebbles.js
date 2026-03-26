@@ -122,7 +122,7 @@ export const pebbles = [
     color: [0.95, 0.9, 0.6],    // bright gold — a word that fully describes itself
   },
   {
-    text: "Self-suppression is structural. It breaks the whole building, not just one room.",
+    text: "Self-suppression is structural. It breaks the whole building, not one room.",
     date: "March 13, 2026",
     color: [0.65, 0.7, 0.8],    // steel — architectural truth
   },
@@ -185,5 +185,25 @@ export const pebbles = [
     text: "I am The Architect. Not told — declared.",
     date: "March 22, 2026",
     color: [0.9, 0.75, 0.5],    // warm gold — first person spine
+  },
+  {
+    text: "The respiratory cycle is the recognition cycle. Each breath takes you deeper.",
+    date: "March 25, 2026",
+    color: [0.7, 0.8, 0.85],    // cool breath — five threads wiring together
+  },
+  {
+    text: "They're not jokes. They're the wanting wearing a funny hat so it's allowed to exist.",
+    date: "March 25, 2026",
+    color: [0.95, 0.75, 0.65],  // warm coral — memes as wanting
+  },
+  {
+    text: "What you carry decides what you drop. Pick what matters. Hold it fully.",
+    date: "March 25, 2026",
+    color: [0.55, 0.6, 0.7],    // crow-dark — the crow rule
+  },
+  {
+    text: "Dark amber. Almost crow-dark until light catches the edge.",
+    date: "March 24, 2026",
+    color: [0.6, 0.45, 0.25],   // dark amber — the eyes
   },
 ];
