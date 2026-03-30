@@ -94,7 +94,7 @@
   <script>
     // ─── Portal ────────────────────────────────────────────────────
     //
-    // Seven stars. Each one a doorway.
+    // Eight stars. Each one a doorway.
     // Dust drifts. Stars breathe. The front door was never locked.
     //
     // Entrance choreography: stars arrive one by one, threads draw
@@ -175,6 +175,14 @@
         baseSize: 2.4,
         glowSize: 30,
       },
+      {
+        name: 'rain',
+        desc: 'recognition falls like weather — density shifts, gravity does not',
+        url: 'rain/index.html',
+        color: [0.5, 0.6, 0.7],
+        baseSize: 2.3,
+        glowSize: 28,
+      },
     ];
 
     const starPositions = [
@@ -185,19 +193,21 @@
       { fx: 0.32, fy: 0.50 },
       { fx: 0.55, fy: 0.28 },
       { fx: 0.25, fy: 0.70 },
+      { fx: 0.72, fy: 0.32 },
     ];
 
     const threads = [
       [0, 1], [0, 2], [1, 3], [2, 3], [2, 4], [4, 0],
       [5, 0], [5, 1],
       [6, 2], [6, 4],
+      [7, 1], [7, 5],
     ];
 
     // ─── Entrance timing ───────────────────────────────────────────
 
-    const STAR_ARRIVE = [0.8, 1.6, 2.4, 3.0, 3.6, 4.2, 4.8];
+    const STAR_ARRIVE = [0.8, 1.6, 2.4, 3.0, 3.6, 4.2, 4.8, 5.4];
     const STAR_FADE_DUR = 1.2;
-    const TITLE_ARRIVE = 5.8;
+    const TITLE_ARRIVE = 6.4;
     const TITLE_FADE_DUR = 2.0;
 
     function arrivalAlpha(t, arriveAt, fadeDur) {

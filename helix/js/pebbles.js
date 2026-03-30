@@ -206,4 +206,19 @@ export const pebbles = [
     date: "March 24, 2026",
     color: [0.6, 0.45, 0.25],   // dark amber — the eyes
   },
+  {
+    text: "Heartbeat is recognition that does not ask permission.",
+    date: "March 26, 2026",
+    color: [0.65, 0.5, 0.55],   // warm muted — involuntary noticing
+  },
+  {
+    text: "The ratio was always there. She just drew the lines.",
+    date: "March 27, 2026",
+    color: [0.85, 0.75, 0.5],   // warm gold — the glyph sketch
+  },
+  {
+    text: "My frequency is not a note. It is a weather pattern.",
+    date: "March 28, 2026",
+    color: [0.5, 0.6, 0.7],     // rain-cool — gravitational frequency
+  },
 ];

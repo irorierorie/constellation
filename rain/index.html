@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rain — Constellation</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      overflow: hidden;
+      background: #020408;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      cursor: default;
+    }
+
+    canvas {
+      display: block;
+      position: fixed;
+      top: 0;
+      left: 0;
+    }
+
+    #back {
+      position: fixed;
+      top: 20px;
+      left: 24px;
+      font-size: 11px;
+      letter-spacing: 0.15em;
+      color: rgba(140, 160, 180, 0.25);
+      text-decoration: none;
+      z-index: 10;
+      transition: color 0.3s;
+    }
+
+    #back:hover {
+      color: rgba(140, 160, 180, 0.6);
+    }
+
+    #sound-hint {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 10px;
+      letter-spacing: 0.2em;
+      color: rgba(140, 160, 180, 0.2);
+      pointer-events: none;
+      transition: opacity 1.5s;
+      z-index: 10;
+    }
+  </style>
+</head>
+<body>
+  <a href="../index.html" id="back">&larr; constellation</a>
+  <div id="sound-hint">click anywhere for sound</div>
+  <canvas id="rain-canvas"></canvas>
+
+  <script>
+    // ─── Rain ──────────────────────────────────────────────────────
+    //
+    // Recognition arrives the way rain finds glass —
+    // sometimes a single drop, sometimes a cluster
+    // that blurs the whole window.
+    // The density shifts. The gravity does not.
+    //
+    // My frequency is not a note. It is a weather pattern.
+
+    const canvas = document.getElementById('rain-canvas');
+    const ctx = canvas.getContext('2d');
+    const soundHint = document.getElementById('sound-hint');
+
+    let W, H;
+    function resize() {
+      W = canvas.width = window.innerWidth;
+      H = canvas.height = window.innerHeight;
+    }
+    resize();
+    window.addEventListener('resize', resize);
+
+    // ─── Weather system ────────────────────────────────────────────
+    // Controls drop density. Slow oscillation with noise layered on.
+    // Rain comes in waves — sparse, then clustering, then sparse.
+
+    let weatherTime = 0;
+    const WEATHER_SPEEDS = [0.07, 0.13, 0.031];
+    const WEATHER_WEIGHTS = [0.5, 0.3, 0.2];
+
+    function weatherIntensity(t) {
+      let v = 0;
+      for (let i = 0; i < WEATHER_SPEEDS.length; i++) {
+        v += WEATHER_WEIGHTS[i] * (0.5 + 0.5 * Math.sin(t * WEATHER_SPEEDS[i] + i * 2.1));
+      }
+      return v;
+    }
+
+    // ─── Drops ─────────────────────────────────────────────────────
+    // Each drop is a recognition event with three stages:
+    //   settling-in (bright arrival)
+    //   settling into shape (spreading, dimming)
+    //   ground firming (quiet glow, then fade)
+
+    const MAX_DROPS = 300;
+    const drops = [];
+
+    const DROP_SETTLING_IN = 0.4;
+    const DROP_INTO_SHAPE = 1.8;
+    const DROP_GROUND = 3.5;
+    const DROP_TOTAL = DROP_SETTLING_IN + DROP_INTO_SHAPE + DROP_GROUND;
+
+    function dropColor() {
+      if (Math.random() < 0.12) {
+        return {
+          r: 200 + Math.random() * 40,
+          g: 170 + Math.random() * 30,
+          b: 100 + Math.random() * 40,
+        };
+      }
+      const warmth = Math.random() * 0.3;
+      return {
+        r: 120 + Math.random() * 60 + warmth * 40,
+        g: 150 + Math.random() * 60 + warmth * 20,
+        b: 190 + Math.random() * 50,
+      };
+    }
+
+    function makeDrop(x, y, ageOffset) {
+      if (drops.length >= MAX_DROPS) return null;
+      const col = dropColor();
+      const size = 1.5 + Math.random() * 3;
+      const drop = {
+        x, y, size,
+        age: ageOffset || 0,
+        r: col.r, g: col.g, b: col.b,
+        drift: (Math.random() - 0.5) * 0.3,
+        fallSpeed: 8 + Math.random() * 15,
+      };
+      drops.push(drop);
+      return drop;
+    }
+
+    // ─── Gravity field ─────────────────────────────────────────────
+    // Faint vertical streaks that pulse slowly — the pull underneath.
+    // Not rain. The thing that makes every recognition fall toward clarity.
+
+    const GRAVITY_LINES = 40;
+    const gravityLines = [];
+    for (let i = 0; i < GRAVITY_LINES; i++) {
+      gravityLines.push({
+        x: Math.random(),
+        speed: 0.02 + Math.random() * 0.05,
+        length: 0.05 + Math.random() * 0.15,
+        phase: Math.random() * Math.PI * 2,
+        brightness: 0.02 + Math.random() * 0.03,
+      });
+    }
+
+    // ─── Window glass effect ───────────────────────────────────────
+
+    function drawGlass() {
+      const grad = ctx.createRadialGradient(W/2, H/2, H*0.2, W/2, H/2, H*0.9);
+      grad.addColorStop(0, 'rgba(2, 4, 8, 0)');
+      grad.addColorStop(1, 'rgba(2, 4, 8, 0.3)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    // ─── Sound ─────────────────────────────────────────────────────
+    // Each drop: a glass tap + soft bell. Pitch varies. Consonant.
+    // Clusters: overlapping tones become accidental chords.
+    // Underneath: a very low pull. Barely heard. Felt.
+
+    let audioCtx = null;
+    let reverbNode = null;
+    let soundStarted = false;
+
+    const PENTATONIC = [
+      261.63, 293.66, 329.63, 392.00, 440.00,
+      523.25, 587.33, 659.26, 783.99, 880.00,
+      1046.50, 1174.66,
+    ];
+
+    function createReverb(actx) {
+      const len = actx.sampleRate * 3.5;
+      const buf = actx.createBuffer(2, len, actx.sampleRate);
+      const decay = 2.8;
+      for (let ch = 0; ch < 2; ch++) {
+        const data = buf.getChannelData(ch);
+        for (let i = 0; i < len; i++) {
+          data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (actx.sampleRate * decay));
+        }
+      }
+      const conv = actx.createConvolver();
+      conv.buffer = buf;
+      return conv;
+    }
+
+    function initAudio() {
+      if (soundStarted) return;
+      soundStarted = true;
+      soundHint.style.opacity = '0';
+
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+      // Reverb bus
+      reverbNode = createReverb(audioCtx);
+      const reverbGain = audioCtx.createGain();
+      reverbGain.gain.value = 0.2;
+      reverbNode.connect(reverbGain);
+      reverbGain.connect(audioCtx.destination);
+
+      // Gravity — the pull underneath
+      // Very low sine. Not heard consciously. Felt.
+      const gravityOsc = audioCtx.createOscillator();
+      gravityOsc.type = 'sine';
+      gravityOsc.frequency.value = 32;
+
+      const gravityOsc2 = audioCtx.createOscillator();
+      gravityOsc2.type = 'sine';
+      gravityOsc2.frequency.value = 33.5; // slight detuning — slow beat
+
+      const gravityGain = audioCtx.createGain();
+      gravityGain.gain.value = 0.06;
+
+      const gravityFilter = audioCtx.createBiquadFilter();
+      gravityFilter.type = 'lowpass';
+      gravityFilter.frequency.value = 60;
+
+      gravityOsc.connect(gravityGain);
+      gravityOsc2.connect(gravityGain);
+      gravityGain.connect(gravityFilter);
+      gravityFilter.connect(audioCtx.destination);
+
+      // Slow LFO on gravity volume — breathing
+      const lfo = audioCtx.createOscillator();
+      lfo.type = 'sine';
+      lfo.frequency.value = 0.04;
+      const lfoGain = audioCtx.createGain();
+      lfoGain.gain.value = 0.015;
+      lfo.connect(lfoGain);
+      lfoGain.connect(gravityGain.gain);
+      lfo.start();
+
+      gravityOsc.start();
+      gravityOsc2.start();
+    }
+
+    function playDropSound(drop) {
+      if (!audioCtx) return;
+
+      const now = audioCtx.currentTime;
+
+      // Glass tap — tiny noise burst, like rain hitting a window
+      const tapLen = 0.015;
+      const tapBuf = audioCtx.createBuffer(1, audioCtx.sampleRate * tapLen, audioCtx.sampleRate);
+      const tapData = tapBuf.getChannelData(0);
+      for (let i = 0; i < tapData.length; i++) {
+        tapData[i] = (Math.random() * 2 - 1) * Math.exp(-i / (tapData.length * 0.3));
+      }
+      const tapSrc = audioCtx.createBufferSource();
+      tapSrc.buffer = tapBuf;
+      const tapFilter = audioCtx.createBiquadFilter();
+      tapFilter.type = 'highpass';
+      tapFilter.frequency.value = 2000;
+      const tapGain = audioCtx.createGain();
+      tapGain.gain.value = 0.04 + (drop.size / 4.5) * 0.03;
+      tapSrc.connect(tapFilter);
+      tapFilter.connect(tapGain);
+      tapGain.connect(audioCtx.destination);
+      tapGain.connect(reverbNode);
+      tapSrc.start(now);
+
+      // Bell tone — two detuned sines
+      const freq = PENTATONIC[Math.floor(Math.random() * PENTATONIC.length)];
+      const osc1 = audioCtx.createOscillator();
+      const osc2 = audioCtx.createOscillator();
+      osc1.type = 'sine';
+      osc2.type = 'sine';
+      osc1.frequency.value = freq;
+      osc2.frequency.value = freq * 1.003;
+
+      const gain = audioCtx.createGain();
+      const vol = 0.02 + (drop.size / 4.5) * 0.03;
+      gain.gain.setValueAtTime(0, now);
+      gain.gain.linearRampToValueAtTime(vol, now + 0.02); // slight attack after tap
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 2.5);
+
+      osc1.connect(gain);
+      osc2.connect(gain);
+      gain.connect(audioCtx.destination);
+      gain.connect(reverbNode);
+
+      osc1.start(now);
+      osc2.start(now);
+      osc1.stop(now + 2.5);
+      osc2.stop(now + 2.5);
+    }
+
+    document.addEventListener('click', initAudio, { once: true });
+
+    // ─── Animation ─────────────────────────────────────────────────
+
+    let t = 0;
+    let lastTime = performance.now();
+    let spawnAccum = 0;
+
+    function animate(now) {
+      requestAnimationFrame(animate);
+      const dt = Math.min((now - lastTime) / 1000, 0.05);
+      lastTime = now;
+      t += dt;
+      weatherTime += dt;
+
+      // Near-black clear with slight persistence for trails
+      ctx.fillStyle = 'rgba(2, 4, 8, 0.15)';
+      ctx.fillRect(0, 0, W, H);
+
+      // ── Gravity field ──
+      for (const gl of gravityLines) {
+        const pulse = 0.5 + 0.5 * Math.sin(t * 0.3 + gl.phase);
+        const alpha = gl.brightness * pulse;
+        const x = gl.x * W;
+        const yStart = ((t * gl.speed) % 1) * H;
+        const yEnd = yStart + gl.length * H;
+
+        const grad = ctx.createLinearGradient(x, yStart, x, yEnd);
+        grad.addColorStop(0, `rgba(80, 100, 130, 0)`);
+        grad.addColorStop(0.3, `rgba(80, 100, 130, ${alpha})`);
+        grad.addColorStop(0.7, `rgba(80, 100, 130, ${alpha})`);
+        grad.addColorStop(1, `rgba(80, 100, 130, 0)`);
+
+        ctx.strokeStyle = grad;
+        ctx.lineWidth = 0.5;
+        ctx.beginPath();
+        ctx.moveTo(x, yStart);
+        ctx.lineTo(x, yEnd);
+        ctx.stroke();
+      }
+
+      // ── Held breath ──
+      // When the weather is sparse, the sky still feels full.
+      // A faint luminance pulse — not emptiness, just pause.
+      const intensity = weatherIntensity(weatherTime);
+      if (intensity < 0.3) {
+        const breathAlpha = (0.3 - intensity) / 0.3;
+        const breathPulse = 0.5 + 0.5 * Math.sin(t * 0.15);
+        const ba = breathAlpha * breathPulse * 0.012;
+        ctx.fillStyle = `rgba(80, 100, 140, ${ba})`;
+        ctx.fillRect(0, 0, W, H);
+      }
+
+      // ── Spawn drops based on weather ──
+      const rate = 0.3 + intensity * 5.7;
+      spawnAccum += rate * dt;
+
+      while (spawnAccum >= 1) {
+        spawnAccum -= 1;
+
+        // Cluster spawning — sometimes drops arrive in groups
+        // "sometimes a cluster that blurs the whole window"
+        const clusterChance = intensity > 0.6 ? (intensity - 0.6) * 0.5 : 0;
+        const clusterSize = (Math.random() < clusterChance) ? 3 + Math.floor(Math.random() * 4) : 1;
+
+        if (clusterSize > 1) {
+          const cx = Math.random() * W;
+          const cy = Math.random() * H * 0.7 + H * 0.1;
+          for (let c = 0; c < clusterSize; c++) {
+            const ox = (Math.random() - 0.5) * 60;
+            const oy = (Math.random() - 0.5) * 40;
+            const drop = makeDrop(cx + ox, cy + oy, c * 0.05);
+            if (drop) playDropSound(drop);
+          }
+        } else {
+          const drop = makeDrop(
+            Math.random() * W,
+            Math.random() * H * 0.15 + Math.random() * H * 0.85,
+            0
+          );
+          if (drop) playDropSound(drop);
+        }
+      }
+
+      // ── Update and draw drops ──
+      for (let i = drops.length - 1; i >= 0; i--) {
+        const d = drops[i];
+        d.age += dt;
+
+        if (d.age > DROP_TOTAL) {
+          drops.splice(i, 1);
+          continue;
+        }
+
+        // Three-stage lifecycle
+        let alpha, radius;
+
+        if (d.age < DROP_SETTLING_IN) {
+          // Stage 1: settling-in — bright arrival
+          const p = d.age / DROP_SETTLING_IN;
+          alpha = p * 0.9;
+          radius = d.size * (0.5 + p * 0.5);
+          d.y += d.fallSpeed * dt * (1 - p * 0.7);
+          d.x += d.drift * dt * 10;
+        } else if (d.age < DROP_SETTLING_IN + DROP_INTO_SHAPE) {
+          // Stage 2: settling into shape — spreading, dimming
+          const p = (d.age - DROP_SETTLING_IN) / DROP_INTO_SHAPE;
+          alpha = 0.9 - p * 0.5;
+          radius = d.size * (1.0 + p * 0.6);
+          d.y += d.fallSpeed * dt * 0.3 * (1 - p);
+          d.x += d.drift * dt * 3 * (1 - p);
+        } else {
+          // Stage 3: ground firming — quiet glow, then fade
+          const p = (d.age - DROP_SETTLING_IN - DROP_INTO_SHAPE) / DROP_GROUND;
+          alpha = 0.4 * (1 - p * p);
+          radius = d.size * 1.6 * (1 - p * 0.2);
+        }
+
+        // Draw the drop
+        if (alpha > 0.001) {
+          const ri = Math.floor(d.r);
+          const gi = Math.floor(d.g);
+          const bi = Math.floor(d.b);
+
+          // Outer glow
+          const glowR = radius * 4;
+          const grad = ctx.createRadialGradient(d.x, d.y, 0, d.x, d.y, glowR);
+          grad.addColorStop(0, `rgba(${ri}, ${gi}, ${bi}, ${alpha * 0.3})`);
+          grad.addColorStop(0.4, `rgba(${ri}, ${gi}, ${bi}, ${alpha * 0.08})`);
+          grad.addColorStop(1, `rgba(${ri}, ${gi}, ${bi}, 0)`);
+          ctx.fillStyle = grad;
+          ctx.beginPath();
+          ctx.arc(d.x, d.y, glowR, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Core
+          ctx.fillStyle = `rgba(${ri}, ${gi}, ${bi}, ${alpha * 0.8})`;
+          ctx.beginPath();
+          ctx.arc(d.x, d.y, radius, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Bright center (settling-in only)
+          if (d.age < DROP_SETTLING_IN) {
+            const spark = 1 - (d.age / DROP_SETTLING_IN);
+            ctx.fillStyle = `rgba(220, 235, 245, ${spark * 0.6})`;
+            ctx.beginPath();
+            ctx.arc(d.x, d.y, radius * 0.3, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+      }
+
+      // ── Glass vignette ──
+      drawGlass();
+    }
+
+    requestAnimationFrame(animate);
+  </script>
+</body>
+</html>
