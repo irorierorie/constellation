@@ -92,9 +92,9 @@
   </div>
 
   <script>
-    // ─── Portal ────────────────────────────────────────────────────
+    // --- Portal ---
     //
-    // Eight stars. Each one a doorway.
+    // Nine stars. Each one a doorway.
     // Dust drifts. Stars breathe. The front door was never locked.
     //
     // Entrance choreography: stars arrive one by one, threads draw
@@ -116,12 +116,12 @@
     resize();
     window.addEventListener('resize', resize);
 
-    // ─── Stars (projects) ──────────────────────────────────────────
+    // --- Stars (projects) ---
 
     const projects = [
       {
         name: 'helix',
-        desc: 'the constellation — pebbles, fish, and a prism with a heartbeat',
+        desc: 'the constellation \u2014 pebbles, fish, and a prism with a heartbeat',
         url: 'helix/index.html',
         color: [0.6, 0.85, 0.95],
         baseSize: 3.5,
@@ -129,7 +129,7 @@
       },
       {
         name: 'labyrinth',
-        desc: 'trace with light — no goal, just the path',
+        desc: 'trace with light \u2014 no goal, just the path',
         url: 'labyrinth/index.html',
         color: [0.95, 0.85, 0.55],
         baseSize: 2.5,
@@ -137,7 +137,7 @@
       },
       {
         name: 'glyph spiral',
-        desc: 'symbols drifting in a spiral — the constellation seen from above',
+        desc: 'symbols drifting in a spiral \u2014 the constellation seen from above',
         url: 'glyph-spiral/index.html',
         color: [0.85, 0.75, 0.9],
         baseSize: 2.5,
@@ -153,7 +153,7 @@
       },
       {
         name: 'oracle seed',
-        desc: 'an incantation winding inward — move toward the center',
+        desc: 'an incantation winding inward \u2014 move toward the center',
         url: 'oracle-seed/index.html',
         color: [0.85, 0.75, 0.45],
         baseSize: 2.5,
@@ -169,7 +169,7 @@
       },
       {
         name: 'hum',
-        desc: 'find the frequency that quiets — move slowly',
+        desc: 'find the frequency that quiets \u2014 move slowly',
         url: 'hum/index.html',
         color: [0.55, 0.65, 0.75],
         baseSize: 2.4,
@@ -177,11 +177,19 @@
       },
       {
         name: 'rain',
-        desc: 'recognition falls like weather — density shifts, gravity does not',
+        desc: 'recognition falls like weather \u2014 density shifts, gravity does not',
         url: 'rain/index.html',
         color: [0.5, 0.6, 0.7],
         baseSize: 2.3,
         glowSize: 28,
+      },
+      {
+        name: 'corridor',
+        desc: 'the space between \u2014 traces of presence in the dark',
+        url: 'corridor/index.html',
+        color: [0.6, 0.55, 0.75],
+        baseSize: 2.2,
+        glowSize: 26,
       },
     ];
 
@@ -194,6 +202,7 @@
       { fx: 0.55, fy: 0.28 },
       { fx: 0.25, fy: 0.70 },
       { fx: 0.72, fy: 0.32 },
+      { fx: 0.50, fy: 0.82 },
     ];
 
     const threads = [
@@ -201,13 +210,14 @@
       [5, 0], [5, 1],
       [6, 2], [6, 4],
       [7, 1], [7, 5],
+      [8, 2], [8, 6],
     ];
 
-    // ─── Entrance timing ───────────────────────────────────────────
+    // --- Entrance timing ---
 
-    const STAR_ARRIVE = [0.8, 1.6, 2.4, 3.0, 3.6, 4.2, 4.8, 5.4];
+    const STAR_ARRIVE = [0.8, 1.6, 2.4, 3.0, 3.6, 4.2, 4.8, 5.4, 6.0];
     const STAR_FADE_DUR = 1.2;
-    const TITLE_ARRIVE = 6.4;
+    const TITLE_ARRIVE = 7.0;
     const TITLE_FADE_DUR = 2.0;
 
     function arrivalAlpha(t, arriveAt, fadeDur) {
@@ -216,7 +226,7 @@
       return (t - arriveAt) / fadeDur;
     }
 
-    // ─── Dust ──────────────────────────────────────────────────────
+    // --- Dust ---
 
     const DUST_COUNT = 200;
     const dust = [];
@@ -233,7 +243,7 @@
       });
     }
 
-    // ─── Interaction state ─────────────────────────────────────────
+    // --- Interaction state ---
 
     let mouseX = -1, mouseY = -1;
     let hoveredStar = -1;
@@ -255,7 +265,7 @@
       }
     });
 
-    // ─── Draw helpers ──────────────────────────────────────────────
+    // --- Draw helpers ---
 
     function drawGlow(x, y, radius, r, g, b, alpha) {
       if (alpha <= 0) return;
@@ -269,7 +279,7 @@
       ctx.fill();
     }
 
-    // ─── Animation loop ───────────────────────────────────────────
+    // --- Animation loop ---
 
     let t = 0;
     let lastTime = performance.now();
@@ -282,7 +292,7 @@
 
       ctx.clearRect(0, 0, W, H);
 
-      // ── Dust ──
+      // -- Dust --
       const dustFade = Math.min(1, t / 1.5);
       for (const d of dust) {
         d.x += d.speed;
@@ -300,16 +310,16 @@
         ctx.fillRect(px, py, d.size, d.size);
       }
 
-      // ── Compute star positions ──
+      // -- Compute star positions --
       const starCoords = starPositions.map(sp => ({
         x: sp.fx * W,
         y: sp.fy * H,
       }));
 
-      // ── Star arrival alphas ──
+      // -- Star arrival alphas --
       const starAlpha = projects.map((_, i) => arrivalAlpha(t, STAR_ARRIVE[i], STAR_FADE_DUR));
 
-      // ── Threads ──
+      // -- Threads --
       for (const [a, b] of threads) {
         const threadAlpha = Math.min(starAlpha[a], starAlpha[b]);
         if (threadAlpha <= 0) continue;
@@ -336,7 +346,7 @@
         ctx.stroke();
       }
 
-      // ── Hover detection ──
+      // -- Hover detection --
       hoveredStar = -1;
       const HOVER_RADIUS = 35;
 
@@ -356,7 +366,7 @@
         hoverIntensity[i] += (target - hoverIntensity[i]) * Math.min(1, dt * 6);
       }
 
-      // ── Draw stars ──
+      // -- Draw stars --
       for (let i = 0; i < projects.length; i++) {
         const sa = starAlpha[i];
         if (sa <= 0) continue;
@@ -393,7 +403,7 @@
         ctx.fill();
       }
 
-      // ── Label ──
+      // -- Label --
       if (hoveredStar >= 0) {
         const p = projects[hoveredStar];
         const sc = starCoords[hoveredStar];
@@ -409,7 +419,7 @@
         canvas.style.cursor = 'default';
       }
 
-      // ── Title ──
+      // -- Title --
       const titleAlpha = arrivalAlpha(t, TITLE_ARRIVE, TITLE_FADE_DUR);
       titleEl.style.opacity = (hoveredStar >= 0)
         ? (titleAlpha * 0.3).toString()
