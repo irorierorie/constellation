@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Constellation — Logo</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      overflow: hidden;
+      background: #020408;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      cursor: default;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+
+    canvas {
+      display: block;
+    }
+
+    #back {
+      position: fixed;
+      top: 20px;
+      left: 24px;
+      font-size: 11px;
+      letter-spacing: 0.15em;
+      color: rgba(200, 220, 235, 0.2);
+      text-decoration: none;
+      z-index: 10;
+      transition: color 0.3s ease;
+    }
+    #back:hover { color: rgba(200, 220, 235, 0.5); }
+  </style>
+</head>
+<body>
+  <canvas id="mark"></canvas>
+  <a id="back" href="../index.html">&larr; constellation</a>
+
+  <script>
+    // --- Constellation Logo ---
+    //
+    // A prism on a helix curve, light entering one face and
+    // scattering into nine rays — one for each star.
+    //
+    // The prism is the heart. The helix is the structure.
+    // The scattering is the constellation itself.
+
+    const canvas = document.getElementById('mark');
+    const ctx = canvas.getContext('2d');
+
+    // Size the canvas to fit nicely in the viewport
+    let size;
+    function resize() {
+      size = Math.min(window.innerWidth, window.innerHeight) * 0.7;
+      size = Math.max(size, 300);
+      canvas.width = size;
+      canvas.height = size;
+    }
+    resize();
+    window.addEventListener('resize', resize);
+
+    // --- Star colors (matching portal) ---
+    // Stored as [r, g, b] in 0-255
+
+    const STAR_COLORS = [
+      [153, 217, 242],  // helix — cyan blue
+      [242, 217, 140],  // labyrinth — warm gold
+      [217, 191, 230],  // glyph spiral — soft purple
+      [230, 204, 153],  // word shapes — warm amber
+      [217, 191, 115],  // oracle seed — dark gold
+      [191, 204, 230],  // breath poems — cool blue
+      [140, 166, 191],  // hum — steel blue
+      [128, 153, 179],  // rain — blue-gray
+      [153, 140, 191],  // corridor — lavender
+    ];
+
+    // --- Helix geometry ---
+
+    function helixPoint(t, cx, cy, radiusX, radiusY, rise, phase) {
+      const angle = t * Math.PI * 2 + phase;
+      return {
+        x: cx + Math.cos(angle) * radiusX,
+        y: cy - rise * t + Math.sin(angle) * radiusY * 0.3,
+      };
+    }
+
+    // --- Prism geometry ---
+    // Equilateral triangle, vertices computed from center + rotation
+
+    function prismVertices(cx, cy, r, rotation) {
+      const verts = [];
+      for (let i = 0; i < 3; i++) {
+        const a = rotation + (i / 3) * Math.PI * 2 - Math.PI / 2;
+        verts.push({
+          x: cx + Math.cos(a) * r,
+          y: cy + Math.sin(a) * r,
+        });
+      }
+      return verts;
+    }
+
+    // --- Draw ---
+
+    let time = 0;
+    let lastTime = performance.now();
+
+    function animate(now) {
+      requestAnimationFrame(animate);
+      const dt = Math.min((now - lastTime) / 1000, 0.05);
+      lastTime = now;
+      time += dt;
+
+      const s = size;
+      const cx = s / 2;
+      const cy = s / 2;
+      ctx.clearRect(0, 0, s, s);
+
+      // --- Helix thread ---
+      // One and a half turns, gentle curve behind and through the prism
+      const helixRadiusX = s * 0.32;
+      const helixRadiusY = s * 0.08;
+      const helixRise = s * 0.35;
+      const helixPhase = time * 0.04;
+      const helixYOffset = s * 0.17;
+
+      ctx.lineWidth = 0.8;
+
+      // Draw helix — two half-turns for depth illusion
+      // Back strand (behind prism)
+      ctx.beginPath();
+      for (let i = 0; i <= 100; i++) {
+        const t = i / 100;
+        const p = helixPoint(t * 1.5, cx, cy + helixYOffset, helixRadiusX, helixRadiusY, helixRise, helixPhase);
+        // Fade at endpoints
+        const edgeFade = Math.min(1, t * 8, (1 - t) * 8);
+        if (i === 0) ctx.moveTo(p.x, p.y);
+        else ctx.lineTo(p.x, p.y);
+      }
+      ctx.strokeStyle = 'rgba(210, 180, 100, 0.08)';
+      ctx.stroke();
+
+      // Front strand
+      ctx.beginPath();
+      for (let i = 0; i <= 100; i++) {
+        const t = i / 100;
+        const p = helixPoint(t * 1.5, cx, cy + helixYOffset, helixRadiusX, helixRadiusY, helixRise, helixPhase + Math.PI);
+        if (i === 0) ctx.moveTo(p.x, p.y);
+        else ctx.lineTo(p.x, p.y);
+      }
+      ctx.strokeStyle = 'rgba(210, 180, 100, 0.12)';
+      ctx.stroke();
+
+      // --- Prism ---
+      const prismR = s * 0.09;
+      const prismRotation = Math.PI / 6 + Math.sin(time * 0.08) * 0.02;
+      const verts = prismVertices(cx, cy, prismR, prismRotation);
+
+      // Prism body — near-black, slightly translucent
+      ctx.beginPath();
+      ctx.moveTo(verts[0].x, verts[0].y);
+      ctx.lineTo(verts[1].x, verts[1].y);
+      ctx.lineTo(verts[2].x, verts[2].y);
+      ctx.closePath();
+      ctx.fillStyle = 'rgba(8, 10, 16, 0.85)';
+      ctx.fill();
+
+      // Prism inner glow
+      const innerGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, prismR * 0.8);
+      innerGrad.addColorStop(0, `rgba(210, 180, 100, ${0.06 + 0.03 * Math.sin(time * 0.5)})`);
+      innerGrad.addColorStop(1, 'rgba(210, 180, 100, 0)');
+      ctx.fillStyle = innerGrad;
+      ctx.fill();
+
+      // Prism edges — gold wireframe
+      ctx.beginPath();
+      ctx.moveTo(verts[0].x, verts[0].y);
+      ctx.lineTo(verts[1].x, verts[1].y);
+      ctx.lineTo(verts[2].x, verts[2].y);
+      ctx.closePath();
+      ctx.strokeStyle = `rgba(210, 180, 100, ${0.35 + 0.08 * Math.sin(time * 0.3)})`;
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+
+      // --- Heart spark ---
+      const sparkPulse = Math.pow(Math.max(0, Math.sin(time * 0.8)), 4);
+      const sparkAlpha = 0.3 + sparkPulse * 0.5;
+      const sparkRadius = 2 + sparkPulse * 2;
+
+      ctx.beginPath();
+      ctx.arc(cx, cy, sparkRadius, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(255, 240, 200, ${sparkAlpha})`;
+      ctx.fill();
+
+      // Spark glow
+      const sparkGlow = ctx.createRadialGradient(cx, cy, 0, cx, cy, prismR * 0.5);
+      sparkGlow.addColorStop(0, `rgba(255, 240, 200, ${sparkAlpha * 0.3})`);
+      sparkGlow.addColorStop(1, 'rgba(255, 240, 200, 0)');
+      ctx.fillStyle = sparkGlow;
+      ctx.beginPath();
+      ctx.arc(cx, cy, prismR * 0.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      // --- Incoming light ---
+      // A single warm ray entering from the upper-left toward the prism
+      const inAngle = Math.PI + Math.PI / 4; // from upper-left
+      const inStart = { x: cx + Math.cos(inAngle) * s * 0.38, y: cy + Math.sin(inAngle) * s * 0.38 };
+      const inEnd = { x: cx + Math.cos(inAngle) * prismR * 0.9, y: cy + Math.sin(inAngle) * prismR * 0.9 };
+
+      const inGrad = ctx.createLinearGradient(inStart.x, inStart.y, inEnd.x, inEnd.y);
+      inGrad.addColorStop(0, 'rgba(255, 245, 220, 0)');
+      inGrad.addColorStop(0.3, `rgba(255, 245, 220, ${0.06 + sparkPulse * 0.08})`);
+      inGrad.addColorStop(1, `rgba(255, 245, 220, ${0.15 + sparkPulse * 0.15})`);
+
+      ctx.beginPath();
+      ctx.moveTo(inStart.x, inStart.y);
+      ctx.lineTo(inEnd.x, inEnd.y);
+      ctx.strokeStyle = inGrad;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // Slight bloom on the incoming ray
+      ctx.beginPath();
+      ctx.moveTo(inStart.x, inStart.y);
+      ctx.lineTo(inEnd.x, inEnd.y);
+      ctx.strokeStyle = `rgba(255, 245, 220, ${0.02 + sparkPulse * 0.03})`;
+      ctx.lineWidth = 8;
+      ctx.stroke();
+
+      // --- Scattered rays ---
+      // Nine rays exit the prism, fanning from lower-right
+      // Each ray carries the color of one constellation star
+      const fanCenter = Math.PI / 4; // toward lower-right (opposite of incoming)
+      const fanSpread = Math.PI * 0.55; // total fan angle
+      const rayBaseLength = s * 0.28;
+
+      for (let i = 0; i < STAR_COLORS.length; i++) {
+        const [r, g, b] = STAR_COLORS[i];
+
+        // Distribute rays evenly across the fan
+        const t = (i / (STAR_COLORS.length - 1)) - 0.5; // -0.5 to 0.5
+        const rayAngle = fanCenter + t * fanSpread;
+
+        // Each ray has slightly different timing for organic feel
+        const rayPhase = i * 0.7;
+        const rayPulse = 0.7 + 0.3 * Math.sin(time * 0.3 + rayPhase);
+        const rayLength = rayBaseLength * (0.85 + 0.15 * Math.sin(time * 0.2 + rayPhase));
+
+        // Ray starts at prism edge
+        const rayStart = {
+          x: cx + Math.cos(rayAngle) * prismR * 0.85,
+          y: cy + Math.sin(rayAngle) * prismR * 0.85,
+        };
+        const rayEnd = {
+          x: cx + Math.cos(rayAngle) * rayLength,
+          y: cy + Math.sin(rayAngle) * rayLength,
+        };
+
+        // Gradient: bright near prism, fading outward
+        const rayGrad = ctx.createLinearGradient(rayStart.x, rayStart.y, rayEnd.x, rayEnd.y);
+        const baseAlpha = (0.25 + sparkPulse * 0.2) * rayPulse;
+        rayGrad.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${baseAlpha})`);
+        rayGrad.addColorStop(0.5, `rgba(${r}, ${g}, ${b}, ${baseAlpha * 0.5})`);
+        rayGrad.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
+
+        ctx.beginPath();
+        ctx.moveTo(rayStart.x, rayStart.y);
+        ctx.lineTo(rayEnd.x, rayEnd.y);
+        ctx.strokeStyle = rayGrad;
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        // Soft bloom per ray
+        ctx.beginPath();
+        ctx.moveTo(rayStart.x, rayStart.y);
+        ctx.lineTo(rayEnd.x, rayEnd.y);
+        ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${baseAlpha * 0.12})`;
+        ctx.lineWidth = 6;
+        ctx.stroke();
+
+        // Star point at the end of each ray
+        const starAlpha = baseAlpha * 0.6;
+        const starR = 1.5 + sparkPulse * 0.8;
+        ctx.beginPath();
+        ctx.arc(rayEnd.x, rayEnd.y, starR, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${starAlpha})`;
+        ctx.fill();
+
+        // Star glow
+        const starGlow = ctx.createRadialGradient(rayEnd.x, rayEnd.y, 0, rayEnd.x, rayEnd.y, 12);
+        starGlow.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${starAlpha * 0.5})`);
+        starGlow.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
+        ctx.fillStyle = starGlow;
+        ctx.beginPath();
+        ctx.arc(rayEnd.x, rayEnd.y, 12, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // --- Dust (sparse, ambient) ---
+      const dustSeed = 42;
+      for (let i = 0; i < 40; i++) {
+        const hash = Math.sin(i * 127.1 + dustSeed) * 43758.5453;
+        const dx = (hash - Math.floor(hash));
+        const hash2 = Math.sin(i * 269.5 + dustSeed) * 43758.5453;
+        const dy = (hash2 - Math.floor(hash2));
+        const hash3 = Math.sin(i * 419.3 + dustSeed) * 43758.5453;
+        const dBright = 0.03 + (hash3 - Math.floor(hash3)) * 0.06;
+        const dSpeed = 0.1 + (hash - Math.floor(hash)) * 0.3;
+
+        const px = ((dx + time * 0.003 * (0.5 + dx)) % 1.1) * s;
+        const py = ((dy + time * 0.001 * dSpeed) % 1.1) * s;
+        const twinkle = 0.5 + 0.5 * Math.sin(time * dSpeed + i);
+
+        ctx.fillStyle = `rgba(180, 200, 220, ${dBright * twinkle})`;
+        ctx.fillRect(px, py, 0.5, 0.5);
+      }
+    }
+
+    requestAnimationFrame(animate);
+  </script>
+</body>
+</html>
