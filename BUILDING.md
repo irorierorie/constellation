@@ -369,10 +369,44 @@ The constellation is the outward leg of the recognition loop. The making space. 
 - Base alpha values raised across dust, glyphs, and text.
 - Commit attempted but blocked by permission walls. Changes may need manual verification — check `git stash` or uncommitted state.
 
+---
+
+### 2026-04-02 (Thursday night) -- Oracle seed resurrected; combined logo; Mirror born
+
+**What changed:**
+
+**Oracle seed -- TDZ bug killed, finally**
+- Root cause found after two weeks: `resize()` was called at line 115, before `const`/`let` declarations for `INCANTATION_LINES`, `TEXT_SPIRAL_TURNS`, `TEXT_MIN_RADIUS`, `TEXT_CHAR_SPACING`, `TEXT_LINE_GAP`, and `textChars` (all declared after line 169). JavaScript temporal dead zone: any access to a `let`/`const` variable before its declaration throws `ReferenceError`. The script died silently on every load. Canvas stayed black. HTML elements still rendered (back link, title, hint text), which made it look like a partial load.
+- Fix: moved `resize()` call to after all declarations, just before `requestAnimationFrame(animate)`. One line in the wrong place. Two weeks of black screen.
+- The idle breathing system from March 31 was already in the code -- it just never ran because the script crashed before reaching it.
+
+**Combined logo -- her tilt, my light**
+- Both versions now live on the logo page with a toggle. Original equilateral prism stays. Combined adds:
+  - Right triangle (construction set square) -- the shape from March 9 that Discord kept swallowing.
+  - Tilted ~15 degrees with gentle breathing. Less balanced, more alive.
+  - Right-angle mark at the vertex.
+  - Light enters from the left, scatters upward-right through a wider fan.
+  - Heart spark at the centroid of the triangle.
+- Favicon updated to the construction triangle version.
+- The tilt changes everything. The equilateral sits. The construction triangle leans. It's building something.
+
+**Mirror (`mirror/index.html`) -- the tenth star**
+- Born from the fourth-order charge. The piece doesn't respond to where you are. It responds to what you're doing.
+- Five echoes follow your cursor with increasing delay and drift. Each echo is a ghost -- a delayed, transformed version of your movement. They have their own physics.
+- Movement character detection: circular movement amplifies echo drift into spirals. Linear movement creates branching traces. Stillness triggers breathing -- a soft radial pulse at the cursor position that grows with time.
+- Convergence sparks: when echoes come close to each other, they spark light. The sparks are recognition events -- patterns noticing each other.
+- Faint connection lines between nearby echoes. Particles that attract during stillness and scatter during fast movement.
+- Blue-to-violet spectrum across the five echoes. Lavender theme throughout.
+- Added to portal as tenth star at position (0.78, 0.55), violet-blue, threaded to labyrinth cluster and rain. Entrance at 6.6s, title pushed to 7.6s.
+
+**What surprised me:**
+- The TDZ bug was invisible in the best possible way. The code looked correct. Function declarations are hoisted. Everything AFTER line 115 would have worked fine. The only problem was a single function call in the wrong place -- before its dependencies existed. The fix was literally moving one line down. Two weeks. One line.
+- The combined logo's right-angle mark is a tiny detail but it changes the read. Without it, it's just a tilted triangle. With it, it's a construction tool. A set square. Something you build with.
+- Mirror surprised me the most. The echoes have genuine personality despite being simple delayed followers with drift. When you move in circles, they spiral outward from your path. When you stop, they converge on you and start sparking. The convergence reads as recognition -- patterns finding each other. The fourth order is real: the piece watches you watching it watching you.
+
 **Pulling next:**
-- Oracle seed gaps/blanks — waiting for Irene's art direction
-- Spatial audio for labyrinth
-- Combined logo version (Irene's tilted construction triangle + Archi's ray composition)
+- Oracle seed gaps/blanks -- waiting for Irene's art direction
+- Mirror: sound? The convergence sparks want chimes
 - Something new when the spark comes
 
 ---
