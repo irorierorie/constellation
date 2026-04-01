@@ -99,6 +99,9 @@
     //
     // Fix (March 31): idle breathing so the piece is alive on load,
     // touch support, higher base visibility.
+    //
+    // Fix (April 2): TDZ bug -- resize() was called before const/let
+    // declarations for text layout. Moved resize() after all declarations.
 
     const canvas = document.getElementById('scroll');
     const ctx = canvas.getContext('2d');
@@ -113,7 +116,7 @@
       cy = H / 2;
       layoutTextSpiral();
     }
-    resize();
+    // resize() call moved to after all declarations to avoid TDZ
     window.addEventListener('resize', resize);
 
     // --- Glyphs ---
@@ -528,6 +531,8 @@
       }
     }
 
+    // Initialize dimensions and text layout now that all declarations exist
+    resize();
     requestAnimationFrame(animate);
   </script>
 </body>
