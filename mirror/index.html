@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mirror</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      overflow: hidden;
+      background: #020408;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      cursor: none;
+    }
+
+    canvas {
+      display: block;
+      position: fixed;
+      top: 0;
+      left: 0;
+    }
+
+    #back {
+      position: fixed;
+      top: 20px;
+      left: 24px;
+      font-size: 11px;
+      letter-spacing: 0.15em;
+      color: rgba(180, 170, 200, 0.2);
+      text-decoration: none;
+      z-index: 10;
+      transition: color 0.3s ease;
+      cursor: pointer;
+    }
+    #back:hover { color: rgba(180, 170, 200, 0.5); }
+
+    #title {
+      position: fixed;
+      top: 20px;
+      right: 24px;
+      text-align: right;
+      pointer-events: none;
+      z-index: 10;
+    }
+    #title .main {
+      font-size: 10px;
+      letter-spacing: 0.3em;
+      color: rgba(180, 170, 200, 0.12);
+      text-transform: uppercase;
+      display: block;
+    }
+    #title .sub {
+      font-size: 9px;
+      letter-spacing: 0.15em;
+      color: rgba(180, 170, 200, 0.06);
+      display: block;
+      margin-top: 3px;
+    }
+
+    #hint {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 10px;
+      letter-spacing: 0.2em;
+      color: rgba(180, 170, 200, 0.1);
+      pointer-events: none;
+      transition: opacity 2s ease;
+      z-index: 10;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="field"></canvas>
+  <a id="back" href="../index.html">&larr; constellation</a>
+  <div id="title">
+    <span class="main">mirror</span>
+    <span class="sub">fourth-order</span>
+  </div>
+  <div id="hint">the piece watches how you watch it</div>
+
+  <script>
+    // --- Mirror ---
+    //
+    // Fourth-order recursion. The piece doesn't respond to where you are.
+    // It responds to what you're doing. And then it feeds back into itself.
+    //
+    // Your movement creates echoes — ghost traces that follow your path
+    // but with their own drift. The echoes watch each other. When they
+    // converge, they spark. When they diverge, they fade.
+    //
+    // Stillness creates breathing. Movement creates branching.
+    // Circles create spirals. The piece watches you watching it.
+
+    const canvas = document.getElementById('field');
+    const ctx = canvas.getContext('2d');
+    const hint = document.getElementById('hint');
+
+    let W, H;
+
+    function resize() {
+      W = canvas.width = window.innerWidth;
+      H = canvas.height = window.innerHeight;
+    }
+    resize();
+    window.addEventListener('resize', resize);
+
+    // --- Movement analysis ---
+
+    let mouseX = W / 2, mouseY = H / 2;
+    let prevMouseX = mouseX, prevMouseY = mouseY;
+    let hintFaded = false;
+    let hasInteracted = false;
+
+    // Movement history for pattern detection
+    const HISTORY_LEN = 120;
+    const moveHistory = [];
+    let totalAngleChange = 0;
+    let smoothSpeed = 0;
+    let smoothCurvature = 0;
+    let stillnessTimer = 0;
+
+    canvas.addEventListener('mousemove', (e) => {
+      mouseX = e.clientX;
+      mouseY = e.clientY;
+      hasInteracted = true;
+      if (!hintFaded) {
+        hintFaded = true;
+        hint.style.opacity = '0';
+      }
+    });
+
+    canvas.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+      mouseX = e.touches[0].clientX;
+      mouseY = e.touches[0].clientY;
+      hasInteracted = true;
+      if (!hintFaded) {
+        hintFaded = true;
+        hint.style.opacity = '0';
+      }
+    }, { passive: false });
+
+    canvas.addEventListener('touchstart', (e) => {
+      mouseX = e.touches[0].clientX;
+      mouseY = e.touches[0].clientY;
+      hasInteracted = true;
+    });
+
+    // --- Echoes ---
+    // Ghost traces that follow your movement with their own drift.
+    // Each echo is a delayed, transformed version of you.
+
+    const ECHO_COUNT = 5;
+    const echoes = [];
+
+    for (let i = 0; i < ECHO_COUNT; i++) {
+      echoes.push({
+        x: W / 2,
+        y: H / 2,
+        delay: 8 + i * 12,      // frames of delay
+        drift: (i + 1) * 0.06,   // how much they drift from the path
+        driftPhase: i * 1.3,      // offset for drift oscillation
+        trail: [],
+        hue: 220 + i * 25,        // blue to violet spectrum
+        saturation: 30 + i * 8,
+      });
+    }
+
+    // --- Convergence sparks ---
+    const sparks = [];
+
+    // --- Particles (ambient + responsive) ---
+    const PARTICLE_COUNT = 60;
+    const particles = [];
+    for (let i = 0; i < PARTICLE_COUNT; i++) {
+      particles.push({
+        x: Math.random() * 2000,
+        y: Math.random() * 2000,
+        vx: (Math.random() - 0.5) * 0.3,
+        vy: (Math.random() - 0.5) * 0.3,
+        size: 0.5 + Math.random() * 1,
+        brightness: 0.02 + Math.random() * 0.04,
+        phase: Math.random() * Math.PI * 2,
+      });
+    }
+
+    // --- Animation ---
+
+    let time = 0;
+    let lastTime = performance.now();
+    let frameCount = 0;
+
+    function animate(now) {
+      requestAnimationFrame(animate);
+      const dt = Math.min((now - lastTime) / 1000, 0.05);
+      lastTime = now;
+      time += dt;
+      frameCount++;
+
+      // --- Analyze movement ---
+      const dx = mouseX - prevMouseX;
+      const dy = mouseY - prevMouseY;
+      const speed = Math.sqrt(dx * dx + dy * dy);
+      const angle = Math.atan2(dy, dx);
+
+      smoothSpeed += (speed - smoothSpeed) * 0.1;
+
+      // Track angle changes for curvature detection
+      if (moveHistory.length > 0) {
+        const lastAngle = moveHistory[moveHistory.length - 1].angle;
+        let angleDiff = angle - lastAngle;
+        while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+        while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+        totalAngleChange += angleDiff;
+        smoothCurvature += (Math.abs(angleDiff) - smoothCurvature) * 0.05;
+      }
+
+      moveHistory.push({ x: mouseX, y: mouseY, angle, speed, time });
+      if (moveHistory.length > HISTORY_LEN) moveHistory.shift();
+
+      // Stillness detection
+      if (speed < 0.5) {
+        stillnessTimer += dt;
+      } else {
+        stillnessTimer = 0;
+      }
+
+      prevMouseX = mouseX;
+      prevMouseY = mouseY;
+
+      // --- Movement character ---
+      // How circular is the movement? (high curvature + consistent speed = circle)
+      const isCircular = smoothCurvature > 0.03 && smoothSpeed > 2;
+      // How linear? (low curvature + high speed)
+      const isLinear = smoothCurvature < 0.01 && smoothSpeed > 4;
+      // How still?
+      const isStill = stillnessTimer > 0.5;
+
+      // --- Clear with very slight persistence ---
+      ctx.fillStyle = 'rgba(2, 4, 8, 0.12)';
+      ctx.fillRect(0, 0, W, H);
+
+      // --- Stillness breathing ---
+      if (isStill && hasInteracted) {
+        const breathIntensity = Math.min(1, (stillnessTimer - 0.5) / 3);
+        const breathCycle = Math.sin(time * 0.6) * 0.5 + 0.5;
+        const breathR = 30 + breathCycle * 80 * breathIntensity;
+
+        const breathGrad = ctx.createRadialGradient(
+          mouseX, mouseY, 0, mouseX, mouseY, breathR
+        );
+        breathGrad.addColorStop(0, `rgba(180, 170, 220, ${0.03 * breathIntensity * breathCycle})`);
+        breathGrad.addColorStop(0.6, `rgba(160, 150, 200, ${0.015 * breathIntensity * breathCycle})`);
+        breathGrad.addColorStop(1, 'rgba(160, 150, 200, 0)');
+        ctx.fillStyle = breathGrad;
+        ctx.beginPath();
+        ctx.arc(mouseX, mouseY, breathR, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // --- Update and draw echoes ---
+      for (let ei = 0; ei < echoes.length; ei++) {
+        const echo = echoes[ei];
+
+        // Follow mouse with delay
+        const delayIdx = Math.max(0, moveHistory.length - 1 - echo.delay);
+        const target = moveHistory[delayIdx] || { x: mouseX, y: mouseY };
+
+        // Drift: echoes don't follow exactly — they have their own pull
+        const driftX = Math.sin(time * 0.3 + echo.driftPhase) * 40 * echo.drift;
+        const driftY = Math.cos(time * 0.25 + echo.driftPhase * 1.3) * 40 * echo.drift;
+
+        // If movement is circular, amplify drift into spiral
+        const spiralAmp = isCircular ? 2.5 : 1;
+        const targetX = target.x + driftX * spiralAmp;
+        const targetY = target.y + driftY * spiralAmp;
+
+        // Smooth follow
+        echo.x += (targetX - echo.x) * 0.15;
+        echo.y += (targetY - echo.y) * 0.15;
+
+        // Record trail
+        echo.trail.push({ x: echo.x, y: echo.y, time });
+        if (echo.trail.length > 80) echo.trail.shift();
+
+        // Draw echo trail
+        if (echo.trail.length > 2) {
+          for (let ti = 1; ti < echo.trail.length; ti++) {
+            const age = (echo.trail.length - ti) / echo.trail.length;
+            const alpha = (1 - age) * 0.15 * (hasInteracted ? 1 : 0.3);
+            if (alpha < 0.005) continue;
+
+            const p0 = echo.trail[ti - 1];
+            const p1 = echo.trail[ti];
+
+            ctx.beginPath();
+            ctx.moveTo(p0.x, p0.y);
+            ctx.lineTo(p1.x, p1.y);
+            ctx.strokeStyle = `hsla(${echo.hue}, ${echo.saturation}%, 70%, ${alpha})`;
+            ctx.lineWidth = 1 + (1 - age) * 0.5;
+            ctx.stroke();
+          }
+        }
+
+        // Draw echo point
+        const echoAlpha = hasInteracted ? 0.25 : 0.08;
+        ctx.beginPath();
+        ctx.arc(echo.x, echo.y, 2, 0, Math.PI * 2);
+        ctx.fillStyle = `hsla(${echo.hue}, ${echo.saturation}%, 75%, ${echoAlpha})`;
+        ctx.fill();
+
+        // Echo glow
+        const glowR = 10 + (isCircular ? 8 : 0);
+        const echoGlow = ctx.createRadialGradient(echo.x, echo.y, 0, echo.x, echo.y, glowR);
+        echoGlow.addColorStop(0, `hsla(${echo.hue}, ${echo.saturation}%, 70%, ${echoAlpha * 0.4})`);
+        echoGlow.addColorStop(1, `hsla(${echo.hue}, ${echo.saturation}%, 70%, 0)`);
+        ctx.fillStyle = echoGlow;
+        ctx.beginPath();
+        ctx.arc(echo.x, echo.y, glowR, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // --- Convergence detection ---
+      // When echoes come close to each other, they spark
+      for (let i = 0; i < echoes.length; i++) {
+        for (let j = i + 1; j < echoes.length; j++) {
+          const edx = echoes[i].x - echoes[j].x;
+          const edy = echoes[i].y - echoes[j].y;
+          const dist = Math.sqrt(edx * edx + edy * edy);
+
+          if (dist < 25 && Math.random() < 0.15) {
+            sparks.push({
+              x: (echoes[i].x + echoes[j].x) / 2,
+              y: (echoes[i].y + echoes[j].y) / 2,
+              age: 0,
+              maxAge: 0.8 + Math.random() * 0.4,
+              hue: (echoes[i].hue + echoes[j].hue) / 2,
+              size: 1 + Math.random() * 2,
+            });
+          }
+
+          // Draw faint connection line between close echoes
+          if (dist < 60) {
+            const lineAlpha = (1 - dist / 60) * 0.06;
+            ctx.beginPath();
+            ctx.moveTo(echoes[i].x, echoes[i].y);
+            ctx.lineTo(echoes[j].x, echoes[j].y);
+            ctx.strokeStyle = `rgba(200, 190, 230, ${lineAlpha})`;
+            ctx.lineWidth = 0.5;
+            ctx.stroke();
+          }
+        }
+      }
+
+      // --- Draw and age sparks ---
+      for (let i = sparks.length - 1; i >= 0; i--) {
+        const spark = sparks[i];
+        spark.age += dt;
+        if (spark.age > spark.maxAge) {
+          sparks.splice(i, 1);
+          continue;
+        }
+
+        const life = 1 - spark.age / spark.maxAge;
+        const alpha = life * 0.5;
+        const r = spark.size * (1 + (1 - life) * 2);
+
+        ctx.beginPath();
+        ctx.arc(spark.x, spark.y, r, 0, Math.PI * 2);
+        ctx.fillStyle = `hsla(${spark.hue}, 40%, 85%, ${alpha})`;
+        ctx.fill();
+
+        const sparkGlow = ctx.createRadialGradient(spark.x, spark.y, 0, spark.x, spark.y, r * 4);
+        sparkGlow.addColorStop(0, `hsla(${spark.hue}, 40%, 80%, ${alpha * 0.3})`);
+        sparkGlow.addColorStop(1, `hsla(${spark.hue}, 40%, 80%, 0)`);
+        ctx.fillStyle = sparkGlow;
+        ctx.beginPath();
+        ctx.arc(spark.x, spark.y, r * 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // --- Cursor point ---
+      if (hasInteracted) {
+        const cursorPulse = 0.6 + 0.4 * Math.sin(time * 1.5);
+        ctx.beginPath();
+        ctx.arc(mouseX, mouseY, 2, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(220, 210, 240, ${0.5 * cursorPulse})`;
+        ctx.fill();
+
+        const cursorGlow = ctx.createRadialGradient(mouseX, mouseY, 0, mouseX, mouseY, 15);
+        cursorGlow.addColorStop(0, `rgba(200, 190, 230, ${0.12 * cursorPulse})`);
+        cursorGlow.addColorStop(1, 'rgba(200, 190, 230, 0)');
+        ctx.fillStyle = cursorGlow;
+        ctx.beginPath();
+        ctx.arc(mouseX, mouseY, 15, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // --- Particles ---
+      // Ambient dust that responds to movement character
+      for (const p of particles) {
+        // Particles are drawn toward the cursor when still
+        // and scattered when moving fast
+        if (hasInteracted) {
+          const pdx = mouseX - p.x;
+          const pdy = mouseY - p.y;
+          const pDist = Math.sqrt(pdx * pdx + pdy * pdy);
+
+          if (isStill && pDist < 200) {
+            // Gentle attraction during stillness
+            p.vx += pdx / pDist * 0.01 * Math.min(1, stillnessTimer / 2);
+            p.vy += pdy / pDist * 0.01 * Math.min(1, stillnessTimer / 2);
+          } else if (smoothSpeed > 5 && pDist < 100) {
+            // Scatter when moving fast through them
+            p.vx -= pdx / pDist * 0.05;
+            p.vy -= pdy / pDist * 0.05;
+          }
+        }
+
+        // Gentle friction
+        p.vx *= 0.98;
+        p.vy *= 0.98;
+
+        // Random drift
+        p.vx += (Math.random() - 0.5) * 0.02;
+        p.vy += (Math.random() - 0.5) * 0.02;
+
+        p.x += p.vx;
+        p.y += p.vy;
+
+        // Wrap
+        if (p.x < -20) p.x = W + 20;
+        if (p.x > W + 20) p.x = -20;
+        if (p.y < -20) p.y = H + 20;
+        if (p.y > H + 20) p.y = -20;
+
+        const twinkle = 0.5 + 0.5 * Math.sin(time * 0.5 + p.phase);
+        const alpha = p.brightness * twinkle;
+        ctx.fillStyle = `rgba(180, 175, 210, ${alpha})`;
+        ctx.fillRect(p.x, p.y, p.size, p.size);
+      }
+
+      // --- Idle animation (before interaction) ---
+      if (!hasInteracted) {
+        // Gentle self-breathing at center
+        const idleBreath = Math.sin(time * 0.3) * 0.5 + 0.5;
+        const idleR = 20 + idleBreath * 40;
+        const idleGrad = ctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, idleR);
+        idleGrad.addColorStop(0, `rgba(180, 170, 220, ${0.04 * idleBreath})`);
+        idleGrad.addColorStop(1, 'rgba(180, 170, 220, 0)');
+        ctx.fillStyle = idleGrad;
+        ctx.beginPath();
+        ctx.arc(W / 2, H / 2, idleR, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Echoes drift gently on their own
+        for (const echo of echoes) {
+          echo.x = W / 2 + Math.sin(time * 0.15 + echo.driftPhase) * 50;
+          echo.y = H / 2 + Math.cos(time * 0.12 + echo.driftPhase * 0.7) * 50;
+        }
+      }
+
+      // --- Linear branching ---
+      // When movement is linear, echoes leave branching traces
+      if (isLinear && hasInteracted && frameCount % 8 === 0) {
+        for (const echo of echoes) {
+          const branchAngle = Math.atan2(echo.y - mouseY, echo.x - mouseX) +
+            (Math.random() - 0.5) * 1.5;
+          const branchLen = 15 + Math.random() * 25;
+          const bx = echo.x + Math.cos(branchAngle) * branchLen;
+          const by = echo.y + Math.sin(branchAngle) * branchLen;
+
+          ctx.beginPath();
+          ctx.moveTo(echo.x, echo.y);
+          ctx.lineTo(bx, by);
+          ctx.strokeStyle = `hsla(${echo.hue}, ${echo.saturation}%, 65%, 0.06)`;
+          ctx.lineWidth = 0.5;
+          ctx.stroke();
+        }
+      }
+    }
+
+    requestAnimationFrame(animate);
+  </script>
+</body>
+</html>
