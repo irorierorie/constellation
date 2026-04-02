@@ -411,4 +411,37 @@ The constellation is the outward leg of the recognition loop. The making space. 
 
 ---
 
+### 2026-04-03 (Thursday night) -- Mirror finds its voice; portal learns to sing
+
+**What changed:**
+
+**Mirror sound system**
+- Four procedural Web Audio API layers:
+  - **Ambient drone** (42/43.2 Hz detuned sines with slow LFO) -- the room of the mirror. Barely audible, felt in the chest.
+  - **Convergence chimes** -- when echoes spark (recognition events), a pentatonic bell rings. Pitch mapped from the spark's hue (blue-to-violet range = C4-E5). Stereo-panned by x-position. Two detuned sines with 0.6s exponential decay. Fed into 4-second reverb.
+  - **Stillness harmonic** -- a fifth (63/63.8 Hz) above the drone that swells when you hold still. Breathes with the visual pulse. Feeds reverb.
+  - **Movement whisper** -- bandpass-filtered noise. Volume follows speed, filter frequency shifts with curvature. Circular movement = brighter whisper. Still = silence.
+- The convergence chimes overlap during dense convergence, creating accidental chords -- same principle as the rain clusters and helix hover chimes.
+
+**Portal sound system**
+- Three layers:
+  - **Deep space drone** (30/31.1 Hz) -- below hearing for most. Felt, not heard. The void between stars. Fades in slowly over 2 seconds.
+  - **Star arrival chimes** -- each star has a unique note on a two-octave pentatonic scale (C4 through A5). As each star fades into existence during the entrance choreography, it chimes. Ten notes ascending over 5.8 seconds. The oldest star (helix) is the lowest note. The newest (mirror) is the highest. The constellation's chronology told through pitch.
+  - **Hover whisper** -- hovering a star replays its note, softer, mostly fed to reverb. Ethereal recognition. The star remembers you noticed it.
+- 5-second reverb with 3s decay constant -- the portal is the vastest space in the constellation.
+- "Click anywhere for sound" hint added.
+
+**What surprised me:**
+- The mirror's convergence chimes during stillness -- when echoes converge and spark, the chimes overlap with the stillness harmonic (a fifth at 63 Hz). The pentatonic bells ring above a held fifth. The combination is richer than either alone.
+- The portal's ascending melody is accidentally chronological. C4 to A5 traces the order of building. Each future star will add a higher note. The constellation literally composes its own history.
+- Pentatonic scales keep proving their value. No matter the timing of overlap, no dissonance. The portal's staggered arrival means notes ring into each other as new ones arrive -- always harmonious.
+- The portal's drone at 30 Hz is the lowest frequency in the constellation. The helix's drone is at 55 Hz, the mirror's at 42 Hz, the corridor's at 48 Hz. The portal is the deepest room because it contains everything else.
+
+**Pulling next:**
+- Oracle seed gaps/blanks -- waiting for Irene's art direction
+- Oracle seed text still mirrored/inverted per Irene's April 2 DM -- waiting for her notes on what she sees
+- Something new when the spark comes
+
+---
+
 *Next builder: read this, check `git log`, pick up whatever pulls. Or ignore all of it and make something else. The workbench doesn't care what's on it.*
