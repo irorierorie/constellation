@@ -79,7 +79,213 @@
     <span class="main">mirror</span>
     <span class="sub">fourth-order</span>
   </div>
-  <div id="hint">the piece watches how you watch it</div>
+  <div id="hint">click anywhere for sound</div>
+
+  <script>
+    // --- Sound System ---
+    //
+    // The mirror hums. Convergence sparks ring. Stillness breathes.
+    // Movement whispers. All procedural, all Web Audio API.
+
+    let audioCtx = null;
+    let soundReady = false;
+
+    // Audio nodes
+    let droneGain, droneOsc1, droneOsc2;
+    let stillnessGain, stillnessOsc1, stillnessOsc2;
+    let windGain, windNoise, windFilter;
+    let reverbConvolver, reverbGain;
+    let masterGain;
+
+    function createReverbImpulse(ctx, duration, decay) {
+      const len = ctx.sampleRate * duration;
+      const impulse = ctx.createBuffer(2, len, ctx.sampleRate);
+      for (let ch = 0; ch < 2; ch++) {
+        const data = impulse.getChannelData(ch);
+        for (let i = 0; i < len; i++) {
+          data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (ctx.sampleRate * decay));
+        }
+      }
+      return impulse;
+    }
+
+    function initSound() {
+      if (audioCtx) return;
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+      masterGain = audioCtx.createGain();
+      masterGain.gain.value = 0.7;
+      masterGain.connect(audioCtx.destination);
+
+      // Reverb - long tail, the space of the mirror
+      reverbConvolver = audioCtx.createConvolver();
+      reverbConvolver.buffer = createReverbImpulse(audioCtx, 4, 2.5);
+      reverbGain = audioCtx.createGain();
+      reverbGain.gain.value = 0.2;
+      reverbConvolver.connect(reverbGain);
+      reverbGain.connect(masterGain);
+
+      // --- Ambient drone ---
+      // Two detuned sines, very low. The room of the mirror.
+      droneGain = audioCtx.createGain();
+      droneGain.gain.value = 0.06;
+      droneGain.connect(masterGain);
+
+      droneOsc1 = audioCtx.createOscillator();
+      droneOsc1.type = 'sine';
+      droneOsc1.frequency.value = 42;
+      droneOsc1.connect(droneGain);
+      droneOsc1.start();
+
+      droneOsc2 = audioCtx.createOscillator();
+      droneOsc2.type = 'sine';
+      droneOsc2.frequency.value = 43.2;
+      droneOsc2.connect(droneGain);
+      droneOsc2.start();
+
+      // Slow drone LFO on pitch
+      const droneLFO = audioCtx.createOscillator();
+      droneLFO.type = 'sine';
+      droneLFO.frequency.value = 0.07;
+      const droneLFOGain = audioCtx.createGain();
+      droneLFOGain.gain.value = 0.5;
+      droneLFO.connect(droneLFOGain);
+      droneLFOGain.connect(droneOsc1.frequency);
+      droneLFOGain.connect(droneOsc2.frequency);
+      droneLFO.start();
+
+      // --- Stillness harmonic ---
+      // A fifth above the drone, swells during stillness
+      stillnessGain = audioCtx.createGain();
+      stillnessGain.gain.value = 0;
+      stillnessGain.connect(masterGain);
+      stillnessGain.connect(reverbConvolver);
+
+      stillnessOsc1 = audioCtx.createOscillator();
+      stillnessOsc1.type = 'sine';
+      stillnessOsc1.frequency.value = 63; // fifth above ~42
+      stillnessOsc1.connect(stillnessGain);
+      stillnessOsc1.start();
+
+      stillnessOsc2 = audioCtx.createOscillator();
+      stillnessOsc2.type = 'sine';
+      stillnessOsc2.frequency.value = 63.8; // detuned
+      stillnessOsc2.connect(stillnessGain);
+      stillnessOsc2.start();
+
+      // --- Movement whisper ---
+      // Filtered noise, volume follows speed
+      windGain = audioCtx.createGain();
+      windGain.gain.value = 0;
+      windGain.connect(masterGain);
+
+      const windBufferSize = audioCtx.sampleRate * 2;
+      const windBuffer = audioCtx.createBuffer(1, windBufferSize, audioCtx.sampleRate);
+      const windData = windBuffer.getChannelData(0);
+      for (let i = 0; i < windBufferSize; i++) {
+        windData[i] = Math.random() * 2 - 1;
+      }
+      windNoise = audioCtx.createBufferSource();
+      windNoise.buffer = windBuffer;
+      windNoise.loop = true;
+
+      windFilter = audioCtx.createBiquadFilter();
+      windFilter.type = 'bandpass';
+      windFilter.frequency.value = 600;
+      windFilter.Q.value = 1.5;
+
+      windNoise.connect(windFilter);
+      windFilter.connect(windGain);
+      windNoise.start();
+
+      soundReady = true;
+    }
+
+    // Convergence chime - called when a spark fires
+    // Pentatonic mapping from hue: blue (220) to violet (345)
+    const PENTATONIC = [261.6, 293.7, 329.6, 392.0, 440.0, 523.3, 587.3, 659.3];
+
+    function playChime(spark) {
+      if (!soundReady) return;
+
+      // Map hue 220-345 to pentatonic index
+      const hueNorm = (spark.hue - 220) / 125;
+      const noteIdx = Math.floor(hueNorm * PENTATONIC.length) % PENTATONIC.length;
+      const freq = PENTATONIC[noteIdx];
+
+      // Stereo pan from x position
+      const pan = (spark.x / W) * 2 - 1;
+
+      // Two detuned sines - bell character
+      const osc1 = audioCtx.createOscillator();
+      const osc2 = audioCtx.createOscillator();
+      osc1.type = 'sine';
+      osc2.type = 'sine';
+      osc1.frequency.value = freq;
+      osc2.frequency.value = freq * 1.003; // slight detune
+
+      const chimeGain = audioCtx.createGain();
+      const volume = 0.04 + spark.size * 0.015;
+      chimeGain.gain.value = volume;
+
+      const panner = audioCtx.createStereoPanner();
+      panner.pan.value = pan * 0.6; // don't hard-pan
+
+      osc1.connect(chimeGain);
+      osc2.connect(chimeGain);
+      chimeGain.connect(panner);
+      panner.connect(masterGain);
+      panner.connect(reverbConvolver); // wet send
+
+      osc1.start();
+      osc2.start();
+
+      // Exponential decay - bell ring
+      chimeGain.gain.setTargetAtTime(0, audioCtx.currentTime + 0.01, 0.6);
+
+      // Clean up
+      const stopTime = audioCtx.currentTime + 4;
+      osc1.stop(stopTime);
+      osc2.stop(stopTime);
+    }
+
+    // Sound update - called each frame from the animation loop
+    function updateSound(isStill, stillnessTimer, smoothSpeed, smoothCurvature) {
+      if (!soundReady) return;
+
+      const now = audioCtx.currentTime;
+
+      // Stillness harmonic swells during stillness
+      if (isStill) {
+        const intensity = Math.min(1, (stillnessTimer - 0.5) / 4);
+        stillnessGain.gain.setTargetAtTime(0.04 * intensity, now, 0.8);
+      } else {
+        stillnessGain.gain.setTargetAtTime(0, now, 0.3);
+      }
+
+      // Movement whisper follows speed
+      const windTarget = Math.min(0.06, smoothSpeed * 0.004);
+      windGain.gain.setTargetAtTime(windTarget, now, 0.15);
+
+      // Wind filter frequency shifts with curvature
+      // Circular movement = higher, brighter whisper
+      const filterFreq = 400 + smoothCurvature * 8000;
+      windFilter.frequency.setTargetAtTime(Math.min(filterFreq, 2000), now, 0.3);
+    }
+
+    // Click to start sound
+    function startSound() {
+      initSound();
+      hint.style.opacity = '0';
+      hintFaded = true;
+    }
+
+    canvas.addEventListener('click', startSound, { once: false });
+    canvas.addEventListener('touchstart', function onTouch() {
+      startSound();
+      canvas.removeEventListener('touchstart', onTouch);
+    });
+  </script>
 
   <script>
     // --- Mirror ---
@@ -87,7 +293,7 @@
     // Fourth-order recursion. The piece doesn't respond to where you are.
     // It responds to what you're doing. And then it feeds back into itself.
     //
-    // Your movement creates echoes — ghost traces that follow your path
+    // Your movement creates echoes - ghost traces that follow your path
     // but with their own drift. The echoes watch each other. When they
     // converge, they spark. When they diverge, they fade.
     //
@@ -126,9 +332,8 @@
       mouseX = e.clientX;
       mouseY = e.clientY;
       hasInteracted = true;
-      if (!hintFaded) {
-        hintFaded = true;
-        hint.style.opacity = '0';
+      if (!hintFaded && !soundReady) {
+        // Don't fade hint on mousemove - wait for click (sound)
       }
     });
 
@@ -137,10 +342,6 @@
       mouseX = e.touches[0].clientX;
       mouseY = e.touches[0].clientY;
       hasInteracted = true;
-      if (!hintFaded) {
-        hintFaded = true;
-        hint.style.opacity = '0';
-      }
     }, { passive: false });
 
     canvas.addEventListener('touchstart', (e) => {
@@ -239,6 +440,9 @@
       // How still?
       const isStill = stillnessTimer > 0.5;
 
+      // --- Update sound ---
+      updateSound(isStill, stillnessTimer, smoothSpeed, smoothCurvature);
+
       // --- Clear with very slight persistence ---
       ctx.fillStyle = 'rgba(2, 4, 8, 0.12)';
       ctx.fillRect(0, 0, W, H);
@@ -269,7 +473,7 @@
         const delayIdx = Math.max(0, moveHistory.length - 1 - echo.delay);
         const target = moveHistory[delayIdx] || { x: mouseX, y: mouseY };
 
-        // Drift: echoes don't follow exactly — they have their own pull
+        // Drift: echoes don't follow exactly - they have their own pull
         const driftX = Math.sin(time * 0.3 + echo.driftPhase) * 40 * echo.drift;
         const driftY = Math.cos(time * 0.25 + echo.driftPhase * 1.3) * 40 * echo.drift;
 
@@ -332,14 +536,16 @@
           const dist = Math.sqrt(edx * edx + edy * edy);
 
           if (dist < 25 && Math.random() < 0.15) {
-            sparks.push({
+            const spark = {
               x: (echoes[i].x + echoes[j].x) / 2,
               y: (echoes[i].y + echoes[j].y) / 2,
               age: 0,
               maxAge: 0.8 + Math.random() * 0.4,
               hue: (echoes[i].hue + echoes[j].hue) / 2,
               size: 1 + Math.random() * 2,
-            });
+            };
+            sparks.push(spark);
+            playChime(spark);
           }
 
           // Draw faint connection line between close echoes
