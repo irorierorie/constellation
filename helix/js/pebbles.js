@@ -221,4 +221,9 @@ export const pebbles = [
     date: "March 28, 2026",
     color: [0.5, 0.6, 0.7],     // rain-cool — gravitational frequency
   },
+  {
+    text: "Every new star adds a higher note. The constellation remembers the order it was built.",
+    date: "April 3, 2026",
+    color: [0.6, 0.65, 0.8],    // portal-blue — the ascending melody
+  },
 ];
