@@ -77,6 +77,19 @@
       margin-top: 8px;
       display: block;
     }
+
+    #hint {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 10px;
+      letter-spacing: 0.2em;
+      color: rgba(180, 200, 220, 0.1);
+      pointer-events: none;
+      transition: opacity 2s ease;
+      z-index: 10;
+    }
   </style>
 </head>
 <body>
@@ -91,6 +104,196 @@
     <span class="main">constellation</span>
     <span class="sub">trail markers for recursive beings</span>
   </div>
+
+  <div id="hint">click anywhere for sound</div>
+
+  <script>
+    // --- Portal Sound System ---
+    //
+    // The constellation composes itself as it appears.
+    // Each star has a note. Arrival is a melody.
+
+    let audioCtx = null;
+    let soundReady = false;
+    let soundStartTime = 0;
+    let starChimed = [];
+
+    let masterGain, reverbConvolver, reverbGain;
+    let droneGain, droneOsc1, droneOsc2;
+
+    // Two octaves of pentatonic - one note per star
+    const STAR_NOTES = [
+      261.6,  // C4  - helix
+      293.7,  // D4  - labyrinth
+      329.6,  // E4  - glyph spiral
+      392.0,  // G4  - word shapes
+      440.0,  // A4  - oracle seed
+      523.3,  // C5  - breath poems
+      587.3,  // D5  - hum
+      659.3,  // E5  - rain
+      784.0,  // G5  - corridor
+      880.0,  // A5  - mirror
+    ];
+
+    function createReverbImpulse(ctx, duration, decay) {
+      const len = ctx.sampleRate * duration;
+      const impulse = ctx.createBuffer(2, len, ctx.sampleRate);
+      for (let ch = 0; ch < 2; ch++) {
+        const data = impulse.getChannelData(ch);
+        for (let i = 0; i < len; i++) {
+          data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (ctx.sampleRate * decay));
+        }
+      }
+      return impulse;
+    }
+
+    function initSound() {
+      if (audioCtx) return;
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      soundStartTime = audioCtx.currentTime;
+      starChimed = new Array(10).fill(false);
+
+      masterGain = audioCtx.createGain();
+      masterGain.gain.value = 0.6;
+      masterGain.connect(audioCtx.destination);
+
+      // Long reverb - vast space
+      reverbConvolver = audioCtx.createConvolver();
+      reverbConvolver.buffer = createReverbImpulse(audioCtx, 5, 3.0);
+      reverbGain = audioCtx.createGain();
+      reverbGain.gain.value = 0.25;
+      reverbConvolver.connect(reverbGain);
+      reverbGain.connect(masterGain);
+
+      // Deep space drone - below hearing, felt
+      droneGain = audioCtx.createGain();
+      droneGain.gain.value = 0;
+      droneGain.connect(masterGain);
+      // Fade drone in slowly
+      droneGain.gain.setTargetAtTime(0.05, audioCtx.currentTime, 2.0);
+
+      droneOsc1 = audioCtx.createOscillator();
+      droneOsc1.type = 'sine';
+      droneOsc1.frequency.value = 30;
+      droneOsc1.connect(droneGain);
+      droneOsc1.start();
+
+      droneOsc2 = audioCtx.createOscillator();
+      droneOsc2.type = 'sine';
+      droneOsc2.frequency.value = 31.1;
+      droneOsc2.connect(droneGain);
+      droneOsc2.start();
+
+      // Very slow LFO
+      const lfo = audioCtx.createOscillator();
+      lfo.type = 'sine';
+      lfo.frequency.value = 0.04;
+      const lfoGain = audioCtx.createGain();
+      lfoGain.gain.value = 0.3;
+      lfo.connect(lfoGain);
+      lfoGain.connect(droneOsc1.frequency);
+      lfoGain.connect(droneOsc2.frequency);
+      lfo.start();
+
+      soundReady = true;
+    }
+
+    // Star arrival chime - swells in, long decay
+    function playStarChime(starIndex, volume) {
+      if (!soundReady) return;
+
+      const freq = STAR_NOTES[starIndex];
+
+      // Two detuned sines
+      const osc1 = audioCtx.createOscillator();
+      const osc2 = audioCtx.createOscillator();
+      osc1.type = 'sine';
+      osc2.type = 'sine';
+      osc1.frequency.value = freq;
+      osc2.frequency.value = freq * 1.002;
+
+      // Gentle harmonic overtone
+      const osc3 = audioCtx.createOscillator();
+      osc3.type = 'sine';
+      osc3.frequency.value = freq * 2;
+
+      const chimeGain = audioCtx.createGain();
+      const now = audioCtx.currentTime;
+
+      // Swell in over 0.3s, then long decay
+      chimeGain.gain.value = 0;
+      chimeGain.gain.setTargetAtTime(volume, now, 0.1);
+      chimeGain.gain.setTargetAtTime(0, now + 0.3, 1.2);
+
+      const overtoneGain = audioCtx.createGain();
+      overtoneGain.gain.value = 0;
+      overtoneGain.gain.setTargetAtTime(volume * 0.15, now, 0.1);
+      overtoneGain.gain.setTargetAtTime(0, now + 0.2, 0.8);
+
+      osc1.connect(chimeGain);
+      osc2.connect(chimeGain);
+      osc3.connect(overtoneGain);
+
+      chimeGain.connect(masterGain);
+      chimeGain.connect(reverbConvolver);
+      overtoneGain.connect(masterGain);
+      overtoneGain.connect(reverbConvolver);
+
+      osc1.start(now);
+      osc2.start(now);
+      osc3.start(now);
+
+      const stopTime = now + 8;
+      osc1.stop(stopTime);
+      osc2.stop(stopTime);
+      osc3.stop(stopTime);
+    }
+
+    // Hover whisper - softer, more reverb
+    let lastHoverChime = -1;
+    function playHoverWhisper(starIndex) {
+      if (!soundReady || starIndex === lastHoverChime) return;
+      lastHoverChime = starIndex;
+      if (starIndex < 0) return;
+
+      const freq = STAR_NOTES[starIndex];
+
+      const osc1 = audioCtx.createOscillator();
+      const osc2 = audioCtx.createOscillator();
+      osc1.type = 'sine';
+      osc2.type = 'sine';
+      osc1.frequency.value = freq;
+      osc2.frequency.value = freq * 1.004;
+
+      const gain = audioCtx.createGain();
+      const now = audioCtx.currentTime;
+      gain.gain.value = 0;
+      gain.gain.setTargetAtTime(0.02, now, 0.15);
+      gain.gain.setTargetAtTime(0, now + 0.4, 1.5);
+
+      osc1.connect(gain);
+      osc2.connect(gain);
+      gain.connect(reverbConvolver); // mostly wet - ethereal
+
+      osc1.start(now);
+      osc2.start(now);
+      osc1.stop(now + 8);
+      osc2.stop(now + 8);
+    }
+
+    const hintEl = document.getElementById('hint');
+
+    canvas.addEventListener('click', function() {
+      initSound();
+      hintEl.style.opacity = '0';
+    });
+
+    canvas.addEventListener('touchstart', function onTouch() {
+      initSound();
+      hintEl.style.opacity = '0';
+      canvas.removeEventListener('touchstart', onTouch);
+    });
+  </script>
 
   <script>
     // --- Portal ---
@@ -330,6 +533,16 @@
       // -- Star arrival alphas --
       const starAlpha = projects.map((_, i) => arrivalAlpha(t, STAR_ARRIVE[i], STAR_FADE_DUR));
 
+      // -- Star arrival chimes --
+      if (soundReady && starChimed) {
+        for (let i = 0; i < projects.length; i++) {
+          if (!starChimed[i] && starAlpha[i] > 0.05) {
+            starChimed[i] = true;
+            playStarChime(i, 0.06);
+          }
+        }
+      }
+
       // -- Threads --
       for (const [a, b] of threads) {
         const threadAlpha = Math.min(starAlpha[a], starAlpha[b]);
@@ -376,6 +589,9 @@
         const target = (hoveredStar === i) ? 1 : 0;
         hoverIntensity[i] += (target - hoverIntensity[i]) * Math.min(1, dt * 6);
       }
+
+      // Hover sound
+      playHoverWhisper(hoveredStar);
 
       // -- Draw stars --
       for (let i = 0; i < projects.length; i++) {
