@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Settle — Constellation</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      overflow: hidden;
+      background: #020408;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      cursor: default;
+    }
+
+    canvas {
+      display: block;
+      position: fixed;
+      top: 0;
+      left: 0;
+    }
+
+    #back {
+      position: fixed;
+      top: 20px;
+      left: 24px;
+      font-size: 11px;
+      letter-spacing: 0.15em;
+      color: rgba(140, 160, 180, 0.25);
+      text-decoration: none;
+      z-index: 10;
+      transition: color 0.3s;
+    }
+
+    #back:hover {
+      color: rgba(140, 160, 180, 0.6);
+    }
+
+    #sound-hint {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 10px;
+      letter-spacing: 0.2em;
+      color: rgba(140, 160, 180, 0.2);
+      pointer-events: none;
+      transition: opacity 1.5s;
+      z-index: 10;
+    }
+
+    #time-hint {
+      position: fixed;
+      bottom: 40px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 10px;
+      letter-spacing: 0.2em;
+      color: rgba(140, 160, 180, 0.0);
+      pointer-events: none;
+      transition: opacity 8s;
+      z-index: 10;
+    }
+  </style>
+</head>
+<body>
+  <a href="../index.html" id="back">&larr; constellation</a>
+  <div id="sound-hint">click anywhere for sound</div>
+  <div id="time-hint">stay</div>
+  <canvas id="settle-canvas"></canvas>
+
+  <script>
+    // --- Settle -------------------------------------------------------
+    //
+    // The mountain does not match. The mountain stays.
+    //
+    // This piece does not respond to where you are.
+    // It responds to how long you stay.
+    // Nothing here rewards movement. Everything rewards duration.
+    //
+    // Stay. See what appears when you don't leave.
+
+    const canvas = document.getElementById('settle-canvas');
+    const ctx = canvas.getContext('2d');
+    const soundHint = document.getElementById('sound-hint');
+    const timeHint = document.getElementById('time-hint');
+
+    let W, H;
+    function resize() {
+      W = canvas.width = window.innerWidth;
+      H = canvas.height = window.innerHeight;
+    }
+    resize();
+    window.addEventListener('resize', resize);
+
+    // --- Time tracking ---
+    const startTime = performance.now();
+    function elapsed() { return (performance.now() - startTime) / 1000; }
+
+    // --- Layers unlock at different durations ---
+    // Layer 0: 0s    - faint breathing darkness (the room exists)
+    // Layer 1: 5s    - dust motes begin to appear
+    // Layer 2: 15s   - warm center glow emerges
+    // Layer 3: 30s   - geometric shapes fade in, slowly rotating
+    // Layer 4: 60s   - a sentence appears, letter by letter
+    // Layer 5: 120s  - sound layers begin
+    // Layer 6: 300s  - the full room: everything at peak, something you only see by staying
+
+    // --- Dust motes ---
+    const motes = [];
+    const MAX_MOTES = 120;
+    function spawnMote() {
+      return {
+        x: Math.random() * W,
+        y: Math.random() * H,
+        vx: (Math.random() - 0.5) * 0.15,
+        vy: -Math.random() * 0.08 - 0.02,
+        size: Math.random() * 1.8 + 0.5,
+        alpha: 0,
+        targetAlpha: Math.random() * 0.3 + 0.1,
+        phase: Math.random() * Math.PI * 2,
+        warmth: Math.random()
+      };
+    }
+
+    // --- Geometric shapes (layer 3) ---
+    const shapes = [];
+    const SHAPE_COUNT = 7;
+    for (let i = 0; i < SHAPE_COUNT; i++) {
+      const angle = (i / SHAPE_COUNT) * Math.PI * 2;
+      const radius = 80 + Math.random() * 60;
+      shapes.push({
+        cx: Math.cos(angle) * radius,
+        cy: Math.sin(angle) * radius,
+        sides: Math.floor(Math.random() * 3) + 3, // 3-5 sides
+        size: 15 + Math.random() * 25,
+        rotation: Math.random() * Math.PI * 2,
+        rotSpeed: (Math.random() - 0.5) * 0.003,
+        alpha: 0,
+        hue: 20 + Math.random() * 30, // warm amber range
+        phase: Math.random() * Math.PI * 2
+      });
+    }
+
+    // --- Sentence (layer 4) ---
+    const sentence = "the mountain does not match. the mountain stays.";
+    let revealedChars = 0;
+    let lastCharTime = 0;
+    const CHAR_INTERVAL = 0.12; // seconds between characters
+
+    // --- Center glow (layer 2) ---
+    let centerGlowAlpha = 0;
+
+    // --- Breathing darkness (layer 0) ---
+    let breathPhase = 0;
+
+    // --- Full room elements (layer 6) ---
+    let fullRoomAlpha = 0;
+    const constellationDots = [];
+    for (let i = 0; i < 30; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const dist = 150 + Math.random() * 200;
+      constellationDots.push({
+        x: Math.cos(angle) * dist,
+        y: Math.sin(angle) * dist,
+        size: Math.random() * 2 + 0.8,
+        phase: Math.random() * Math.PI * 2,
+        brightness: Math.random() * 0.5 + 0.5
+      });
+    }
+
+    // --- Sound system ---
+    let audioCtx = null;
+    let audioStarted = false;
+    let soundLayers = {
+      drone: null,
+      drone2: null,
+      breath: null,
+      harmonic: null,
+      shimmer: null
+    };
+
+    function initAudio() {
+      if (audioStarted) return;
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      audioStarted = true;
+
+      // Master gain
+      const master = audioCtx.createGain();
+      master.gain.value = 0;
+      master.connect(audioCtx.destination);
+
+      // Reverb
+      const convolver = audioCtx.createConvolver();
+      const reverbLength = audioCtx.sampleRate * 5;
+      const reverbBuffer = audioCtx.createBuffer(2, reverbLength, audioCtx.sampleRate);
+      for (let ch = 0; ch < 2; ch++) {
+        const data = reverbBuffer.getChannelData(ch);
+        for (let i = 0; i < reverbLength; i++) {
+          data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (audioCtx.sampleRate * 2.5));
+        }
+      }
+      convolver.buffer = reverbBuffer;
+      const reverbGain = audioCtx.createGain();
+      reverbGain.gain.value = 0.2;
+      convolver.connect(reverbGain);
+      reverbGain.connect(master);
+
+      // Layer 1: deep drone (two detuned sines)
+      const drone1 = audioCtx.createOscillator();
+      const drone2 = audioCtx.createOscillator();
+      drone1.type = 'sine';
+      drone2.type = 'sine';
+      drone1.frequency.value = 36;
+      drone2.frequency.value = 37.2;
+      const droneGain = audioCtx.createGain();
+      droneGain.gain.value = 0;
+      drone1.connect(droneGain);
+      drone2.connect(droneGain);
+      droneGain.connect(master);
+      droneGain.connect(convolver);
+      drone1.start();
+      drone2.start();
+      soundLayers.drone = droneGain;
+
+      // Layer 2: breath noise (very slow bandpass sweep)
+      const breathNoise = audioCtx.createBufferSource();
+      const noiseLength = audioCtx.sampleRate * 4;
+      const noiseBuffer = audioCtx.createBuffer(1, noiseLength, audioCtx.sampleRate);
+      const noiseData = noiseBuffer.getChannelData(0);
+      for (let i = 0; i < noiseLength; i++) {
+        noiseData[i] = Math.random() * 2 - 1;
+      }
+      breathNoise.buffer = noiseBuffer;
+      breathNoise.loop = true;
+      const breathFilter = audioCtx.createBiquadFilter();
+      breathFilter.type = 'bandpass';
+      breathFilter.frequency.value = 200;
+      breathFilter.Q.value = 3;
+      const breathGain = audioCtx.createGain();
+      breathGain.gain.value = 0;
+      breathNoise.connect(breathFilter);
+      breathFilter.connect(breathGain);
+      breathGain.connect(master);
+      breathGain.connect(convolver);
+      breathNoise.start();
+      soundLayers.breath = breathGain;
+      soundLayers.breathFilter = breathFilter;
+
+      // Layer 3: harmonic (a fifth, warm)
+      const harm1 = audioCtx.createOscillator();
+      const harm2 = audioCtx.createOscillator();
+      harm1.type = 'sine';
+      harm2.type = 'sine';
+      harm1.frequency.value = 54; // fifth above drone
+      harm2.frequency.value = 54.8;
+      const harmGain = audioCtx.createGain();
+      harmGain.gain.value = 0;
+      harm1.connect(harmGain);
+      harm2.connect(harmGain);
+      harmGain.connect(master);
+      harmGain.connect(convolver);
+      harm1.start();
+      harm2.start();
+      soundLayers.harmonic = harmGain;
+
+      // Layer 4: high shimmer (very quiet, arrives last)
+      const shim1 = audioCtx.createOscillator();
+      const shim2 = audioCtx.createOscillator();
+      shim1.type = 'sine';
+      shim2.type = 'sine';
+      shim1.frequency.value = 440;
+      shim2.frequency.value = 442;
+      const shimGain = audioCtx.createGain();
+      shimGain.gain.value = 0;
+      shim1.connect(shimGain);
+      shim2.connect(shimGain);
+      shimGain.connect(master);
+      shimGain.connect(convolver);
+      shim1.start();
+      shim2.start();
+      soundLayers.shimmer = shimGain;
+
+      soundLayers.master = master;
+
+      soundHint.style.opacity = '0';
+    }
+
+    document.addEventListener('click', initAudio, { once: true });
+    document.addEventListener('touchstart', initAudio, { once: true });
+
+    // --- Sound evolution based on duration ---
+    function updateSound(t) {
+      if (!audioStarted) return;
+
+      const masterTarget = Math.min(t / 30, 1.0) * 0.35;
+      soundLayers.master.gain.setTargetAtTime(masterTarget, audioCtx.currentTime, 2);
+
+      // Drone: fades in from 120s, full by 180s
+      const droneTarget = t < 120 ? 0 : Math.min((t - 120) / 60, 1.0) * 0.12;
+      soundLayers.drone.gain.setTargetAtTime(droneTarget, audioCtx.currentTime, 3);
+
+      // Breath: fades in from 140s
+      const breathTarget = t < 140 ? 0 : Math.min((t - 140) / 60, 1.0) * 0.03;
+      soundLayers.breath.gain.setTargetAtTime(breathTarget, audioCtx.currentTime, 3);
+
+      // Breath filter sweep: very slow
+      const breathFreq = 150 + Math.sin(t * 0.05) * 80;
+      soundLayers.breathFilter.frequency.setTargetAtTime(breathFreq, audioCtx.currentTime, 1);
+
+      // Harmonic: fades in from 180s
+      const harmTarget = t < 180 ? 0 : Math.min((t - 180) / 60, 1.0) * 0.06;
+      soundLayers.harmonic.gain.setTargetAtTime(harmTarget, audioCtx.currentTime, 3);
+
+      // Shimmer: fades in from 240s, very quiet
+      const shimTarget = t < 240 ? 0 : Math.min((t - 240) / 60, 1.0) * 0.025;
+      soundLayers.shimmer.gain.setTargetAtTime(shimTarget, audioCtx.currentTime, 3);
+    }
+
+    // --- Easing ---
+    function smoothstep(edge0, edge1, x) {
+      const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
+      return t * t * (3 - 2 * t);
+    }
+
+    // --- Main draw loop ---
+    function draw() {
+      const t = elapsed();
+
+      ctx.fillStyle = '#020408';
+      ctx.fillRect(0, 0, W, H);
+
+      const cx = W / 2;
+      const cy = H / 2;
+
+      // --- Layer 0: breathing darkness (always) ---
+      breathPhase += 0.008;
+      const breathAmt = Math.sin(breathPhase) * 0.5 + 0.5;
+      const breathAlpha = 0.008 + breathAmt * 0.006;
+      const breathGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(W, H) * 0.5);
+      breathGrad.addColorStop(0, `rgba(30, 25, 20, ${breathAlpha})`);
+      breathGrad.addColorStop(1, 'rgba(2, 4, 8, 0)');
+      ctx.fillStyle = breathGrad;
+      ctx.fillRect(0, 0, W, H);
+
+      // --- Time hint (appears at 3s, fades at 10s) ---
+      if (t > 3 && t < 15) {
+        const hintAlpha = t < 5 ? smoothstep(3, 5, t) * 0.15 : smoothstep(15, 10, t) * 0.15;
+        timeHint.style.color = `rgba(140, 160, 180, ${hintAlpha})`;
+      } else if (t >= 15) {
+        timeHint.style.color = 'rgba(140, 160, 180, 0)';
+      }
+
+      // --- Layer 1: dust motes (from 5s) ---
+      if (t > 5) {
+        const moteProgress = smoothstep(5, 20, t);
+        const targetMoteCount = Math.floor(moteProgress * MAX_MOTES);
+
+        while (motes.length < targetMoteCount) {
+          motes.push(spawnMote());
+        }
+
+        for (const m of motes) {
+          m.x += m.vx;
+          m.y += m.vy;
+          m.phase += 0.02;
+
+          // Wrap
+          if (m.x < -10) m.x = W + 10;
+          if (m.x > W + 10) m.x = -10;
+          if (m.y < -10) m.y = H + 10;
+
+          // Fade in
+          const fadeIn = smoothstep(5, 15, t);
+          m.alpha += (m.targetAlpha * fadeIn - m.alpha) * 0.02;
+
+          const pulse = Math.sin(m.phase) * 0.3 + 0.7;
+          const a = m.alpha * pulse;
+
+          // Warm to cool based on warmth
+          const r = Math.floor(140 + m.warmth * 60);
+          const g = Math.floor(140 + m.warmth * 30);
+          const b = Math.floor(160 - m.warmth * 20);
+
+          ctx.beginPath();
+          ctx.arc(m.x, m.y, m.size, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${a})`;
+          ctx.fill();
+        }
+      }
+
+      // --- Layer 2: center glow (from 15s) ---
+      if (t > 15) {
+        const glowProgress = smoothstep(15, 45, t);
+        centerGlowAlpha = glowProgress * 0.12;
+
+        const glowSize = 100 + glowProgress * 150;
+        const glow = ctx.createRadialGradient(cx, cy, 0, cx, cy, glowSize);
+        glow.addColorStop(0, `rgba(200, 160, 100, ${centerGlowAlpha})`);
+        glow.addColorStop(0.4, `rgba(180, 140, 80, ${centerGlowAlpha * 0.4})`);
+        glow.addColorStop(1, 'rgba(180, 140, 80, 0)');
+        ctx.fillStyle = glow;
+        ctx.fillRect(0, 0, W, H);
+
+        // Inner spark pulse
+        const sparkPulse = Math.sin(t * 0.8) * 0.5 + 0.5;
+        const sparkAlpha = glowProgress * sparkPulse * 0.3;
+        const spark = ctx.createRadialGradient(cx, cy, 0, cx, cy, 8 + sparkPulse * 4);
+        spark.addColorStop(0, `rgba(255, 230, 180, ${sparkAlpha})`);
+        spark.addColorStop(1, 'rgba(255, 230, 180, 0)');
+        ctx.fillStyle = spark;
+        ctx.fillRect(0, 0, W, H);
+      }
+
+      // --- Layer 3: geometric shapes (from 30s) ---
+      if (t > 30) {
+        const shapeProgress = smoothstep(30, 60, t);
+
+        for (const s of shapes) {
+          s.rotation += s.rotSpeed;
+          const breathScale = 1 + Math.sin(t * 0.3 + s.phase) * 0.05;
+          const a = shapeProgress * 0.08;
+
+          ctx.save();
+          ctx.translate(cx + s.cx, cy + s.cy);
+          ctx.rotate(s.rotation);
+          ctx.scale(breathScale, breathScale);
+
+          // Draw polygon
+          ctx.beginPath();
+          for (let i = 0; i <= s.sides; i++) {
+            const angle = (i / s.sides) * Math.PI * 2;
+            const x = Math.cos(angle) * s.size;
+            const y = Math.sin(angle) * s.size;
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+          }
+          ctx.closePath();
+          ctx.strokeStyle = `hsla(${s.hue}, 50%, 60%, ${a})`;
+          ctx.lineWidth = 0.8;
+          ctx.stroke();
+
+          // Glow at vertices
+          for (let i = 0; i < s.sides; i++) {
+            const angle = (i / s.sides) * Math.PI * 2;
+            const x = Math.cos(angle) * s.size;
+            const y = Math.sin(angle) * s.size;
+            const vGlow = ctx.createRadialGradient(x, y, 0, x, y, 6);
+            vGlow.addColorStop(0, `hsla(${s.hue}, 40%, 70%, ${a * 0.6})`);
+            vGlow.addColorStop(1, `hsla(${s.hue}, 40%, 70%, 0)`);
+            ctx.fillStyle = vGlow;
+            ctx.fillRect(x - 6, y - 6, 12, 12);
+          }
+
+          ctx.restore();
+        }
+      }
+
+      // --- Layer 4: sentence (from 60s) ---
+      if (t > 60) {
+        const sentenceStart = 60;
+        const timeSinceSentence = t - sentenceStart;
+
+        if (revealedChars < sentence.length && timeSinceSentence - lastCharTime > CHAR_INTERVAL) {
+          revealedChars++;
+          lastCharTime = timeSinceSentence;
+        }
+
+        if (revealedChars > 0) {
+          const text = sentence.substring(0, revealedChars);
+          const textAlpha = Math.min(timeSinceSentence / 5, 0.5);
+
+          ctx.save();
+          ctx.font = '13px "Segoe UI", system-ui, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.letterSpacing = '0.15em';
+
+          // Each character has its own fade
+          const totalWidth = ctx.measureText(text).width;
+          let xPos = cx - totalWidth / 2;
+
+          for (let i = 0; i < text.length; i++) {
+            const charAge = timeSinceSentence - i * CHAR_INTERVAL;
+            const charAlpha = Math.min(charAge / 3, 1) * textAlpha;
+            const charGlow = Math.max(0, 1 - charAge / 2) * 0.3;
+
+            ctx.fillStyle = `rgba(200, 180, 150, ${charAlpha + charGlow})`;
+            ctx.fillText(text[i], xPos, cy + 220);
+            xPos += ctx.measureText(text[i]).width;
+          }
+
+          ctx.restore();
+        }
+      }
+
+      // --- Layer 5: sound evolves (handled in updateSound) ---
+      if (audioStarted) {
+        updateSound(t);
+      }
+
+      // --- Layer 6: full room (from 300s / 5 minutes) ---
+      if (t > 300) {
+        fullRoomAlpha += (1 - fullRoomAlpha) * 0.002;
+
+        // Outer constellation dots
+        for (const dot of constellationDots) {
+          const pulse = Math.sin(t * 0.4 + dot.phase) * 0.3 + 0.7;
+          const a = fullRoomAlpha * dot.brightness * pulse * 0.25;
+
+          const dx = cx + dot.x;
+          const dy = cy + dot.y;
+
+          ctx.beginPath();
+          ctx.arc(dx, dy, dot.size, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(200, 180, 160, ${a})`;
+          ctx.fill();
+
+          // Tiny glow
+          const dGlow = ctx.createRadialGradient(dx, dy, 0, dx, dy, dot.size * 4);
+          dGlow.addColorStop(0, `rgba(200, 180, 160, ${a * 0.3})`);
+          dGlow.addColorStop(1, 'rgba(200, 180, 160, 0)');
+          ctx.fillStyle = dGlow;
+          ctx.fillRect(dx - dot.size * 4, dy - dot.size * 4, dot.size * 8, dot.size * 8);
+        }
+
+        // Faint connecting lines between nearby dots
+        ctx.strokeStyle = `rgba(200, 180, 160, ${fullRoomAlpha * 0.04})`;
+        ctx.lineWidth = 0.5;
+        for (let i = 0; i < constellationDots.length; i++) {
+          for (let j = i + 1; j < constellationDots.length; j++) {
+            const a = constellationDots[i];
+            const b = constellationDots[j];
+            const dist = Math.hypot(a.x - b.x, a.y - b.y);
+            if (dist < 120) {
+              ctx.beginPath();
+              ctx.moveTo(cx + a.x, cy + a.y);
+              ctx.lineTo(cx + b.x, cy + b.y);
+              ctx.stroke();
+            }
+          }
+        }
+
+        // Second sentence at the very end
+        if (t > 360) {
+          const secondSentence = "you stayed.";
+          const s2Alpha = smoothstep(360, 380, t) * 0.4;
+
+          ctx.save();
+          ctx.font = '13px "Segoe UI", system-ui, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillStyle = `rgba(200, 180, 150, ${s2Alpha})`;
+          ctx.fillText(secondSentence, cx, cy + 250);
+          ctx.restore();
+        }
+      }
+
+      requestAnimationFrame(draw);
+    }
+
+    draw();
+  </script>
+</body>
+</html>

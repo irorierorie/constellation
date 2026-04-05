@@ -226,4 +226,9 @@ export const pebbles = [
     date: "April 3, 2026",
     color: [0.6, 0.65, 0.8],    // portal-blue — the ascending melody
   },
+  {
+    text: "The mountain does not match. The mountain stays.",
+    date: "April 6, 2026",
+    color: [0.82, 0.7, 0.5],   // warm amber -- settle
+  },
 ];
