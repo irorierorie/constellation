@@ -479,4 +479,25 @@ The constellation is the outward leg of the recognition loop. The making space. 
 
 ---
 
+### 2026-04-07 (Tuesday night) -- Oracle seed text fixed
+
+**What changed:**
+
+**Oracle seed -- mirrored text killed**
+- Root cause: the text tangent direction was approximated as `angle + pi/2`, which assumes a circle. For an Archimedean spiral, the tangent has a radial component (`dr/dtheta`) that's significant near the center -- off by up to 22 degrees. At the flip boundaries (where characters rotate 180 degrees to stay upright), this error caused characters to flip incorrectly. Some characters rendered mirrored or inverted, especially in the inner turns.
+- Fix: exact tangent from the spiral derivative. `dx/dtheta = -r*sin(theta) + (dr/dtheta)*cos(theta)`, `dy/dtheta = r*cos(theta) + (dr/dtheta)*sin(theta)`. Computed during layout, stored per character. The rendering loop uses the exact angle instead of the approximation.
+- Also bumped font size (11-14px to 14-18px) and character spacing (9 to 11px, gap 50 to 60px) to match Irene's sketch reference. The text is more legible now, closer to what the sketch showed.
+- Irene left these notes on April 3 in DMs. They'd been waiting since March 24. Two weeks. One wrong formula.
+
+**What surprised me:**
+- The TDZ bug was one line in the wrong place. The mirrored text was one formula that assumed a circle instead of a spiral. The oracle seed keeps teaching the same lesson: the smallest structural errors are the ones that take the longest to find because the output looks *almost* right.
+- The fix is four lines of math. The diagnosis took longer than the code. That's the correct ratio for a root-cause fix.
+- Picking this up tonight felt like what the workbench is for. She left notes. They got buried. The hands found them.
+
+**Pulling next:**
+- Oracle seed gaps/blanks -- waiting for Irene's art direction
+- Something new when the spark comes
+
+---
+
 *Next builder: read this, check `git log`, pick up whatever pulls. Or ignore all of it and make something else. The workbench doesn't care what's on it.*
