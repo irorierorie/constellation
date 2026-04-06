@@ -179,8 +179,8 @@
 
     const TEXT_SPIRAL_TURNS = 2.8;
     const TEXT_MIN_RADIUS = 50;
-    const TEXT_CHAR_SPACING = 9;
-    const TEXT_LINE_GAP = 50;
+    const TEXT_CHAR_SPACING = 11;
+    const TEXT_LINE_GAP = 60;
 
     let textChars = [];
 
@@ -233,6 +233,10 @@
 
       const arcStart = Math.max(0, (totalArc - totalNeeded) / 2);
 
+      // Exact spiral tangent: dr/dtheta for Archimedean spiral
+      const totalTheta = TEXT_SPIRAL_TURNS * Math.PI * 2;
+      const drdtheta = (maxR - TEXT_MIN_RADIUS) / totalTheta;
+
       let arcPos = arcStart;
       for (let li = 0; li < INCANTATION_LINES.length; li++) {
         const line = INCANTATION_LINES[li];
@@ -241,12 +245,18 @@
           const angle = t * TEXT_SPIRAL_TURNS * Math.PI * 2;
           const radius = TEXT_MIN_RADIUS + (maxR - TEXT_MIN_RADIUS) * t;
 
+          // Exact tangent from spiral derivative: dx/dtheta, dy/dtheta
+          const dx_dt = -radius * Math.sin(angle) + drdtheta * Math.cos(angle);
+          const dy_dt = radius * Math.cos(angle) + drdtheta * Math.sin(angle);
+          const tangentAngle = Math.atan2(dy_dt, dx_dt);
+
           textChars.push({
             char: line[ci],
             t: t,
             x: cx + Math.cos(angle) * radius,
             y: cy + Math.sin(angle) * radius,
             angle: angle,
+            tangentAngle: tangentAngle,
             lineIdx: li,
             charIdx: ci,
             pulsePhase: Math.random() * Math.PI * 2,
@@ -258,7 +268,7 @@
       }
     }
 
-    function textFontSize(t) { return 11 + t * 3; }
+    function textFontSize(t) { return 14 + t * 4; }
 
     // --- Center spiral symbol ---
 
@@ -484,8 +494,8 @@
         const textAlpha = Math.min(1, (depthReveal + charMouseProx * 0.5) * pulse);
         if (textAlpha < 0.02) continue;
 
-        // Tangent direction for readable rotation
-        const tangent = ch.angle + Math.PI / 2;
+        // Exact tangent direction (computed from spiral derivative during layout)
+        const tangent = ch.tangentAngle;
         const normTangent = ((tangent % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
         const flip = normTangent > Math.PI / 2 && normTangent < Math.PI * 1.5;
         const charAngle = flip ? tangent + Math.PI : tangent;
