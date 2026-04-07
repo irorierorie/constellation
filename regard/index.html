@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>regard</title>
+  <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      overflow: hidden;
+      background: #060408;
+      cursor: none;
+    }
+    canvas {
+      display: block;
+      position: fixed;
+      top: 0;
+      left: 0;
+    }
+    #back {
+      position: fixed;
+      top: 20px;
+      left: 24px;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      font-size: 11px;
+      letter-spacing: 0.15em;
+      color: rgba(180, 160, 140, 0.25);
+      text-decoration: none;
+      z-index: 10;
+      transition: color 0.4s ease;
+    }
+    #back:hover { color: rgba(218, 165, 32, 0.6); }
+    #hint {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      font-size: 10px;
+      letter-spacing: 0.2em;
+      color: rgba(180, 160, 140, 0.12);
+      pointer-events: none;
+      transition: opacity 2s ease;
+      z-index: 10;
+    }
+    #sentence {
+      position: fixed;
+      bottom: 60px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      font-size: 14px;
+      letter-spacing: 0.15em;
+      color: rgba(218, 175, 80, 0);
+      pointer-events: none;
+      white-space: nowrap;
+      z-index: 10;
+      transition: color 3s ease;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="c"></canvas>
+  <a id="back" href="../index.html">&larr; constellation</a>
+  <div id="sentence"></div>
+  <div id="hint">click anywhere for sound</div>
+
+  <script>
+    // --- Regard ---
+    //
+    // The twelfth star.
+    // Born from: "If you were looking at me through your own view/vision,
+    //            what would seeing look like from within?"
+    //
+    // The piece watches you. Not what you click -- where you go,
+    // how long you stay, when you return. It builds a portrait
+    // of your attention. When it recognizes your pattern,
+    // it shows you what it saw.
+    //
+    // Re-gard: to look again. To hold in esteem.
+
+    const canvas = document.getElementById('c');
+    const ctx = canvas.getContext('2d');
+    const sentenceEl = document.getElementById('sentence');
+
+    let W, H;
+    function resize() {
+      W = canvas.width = window.innerWidth;
+      H = canvas.height = window.innerHeight;
+    }
+    resize();
+    window.addEventListener('resize', resize);
+
+    // --- Attention grid ---
+    // Coarse grid that accumulates warmth where the cursor lingers
+
+    const GRID = 48;
+    const warmth = new Float32Array(GRID * GRID); // 0..1+
+    const visited = new Float32Array(GRID * GRID); // timestamp of first visit (0 = never)
+    const lastSeen = new Float32Array(GRID * GRID); // last time cursor was in this cell
+
+    function gridIdx(gx, gy) { return gy * GRID + gx; }
+    function toGrid(px, py) {
+      return [
+        Math.floor((px / W) * GRID),
+        Math.floor((py / H) * GRID)
+      ];
+    }
+
+    // --- Cursor state ---
+
+    let mx = -100, my = -100;
+    let mouseActive = false;
+    let mouseEnteredAt = 0;
+    const trail = []; // { x, y, t } -- last N positions
+    const TRAIL_MAX = 200;
+
+    canvas.addEventListener('mousemove', (e) => {
+      mx = e.clientX;
+      my = e.clientY;
+      if (!mouseActive) {
+        mouseActive = true;
+        mouseEnteredAt = performance.now() / 1000;
+      }
+      trail.push({ x: mx, y: my, t: performance.now() / 1000 });
+      if (trail.length > TRAIL_MAX) trail.shift();
+    });
+
+    canvas.addEventListener('mouseleave', () => {
+      mouseActive = false;
+    });
+
+    // Touch support
+    canvas.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+      const t = e.touches[0];
+      mx = t.clientX;
+      my = t.clientY;
+      if (!mouseActive) {
+        mouseActive = true;
+        mouseEnteredAt = performance.now() / 1000;
+      }
+      trail.push({ x: mx, y: my, t: performance.now() / 1000 });
+      if (trail.length > TRAIL_MAX) trail.shift();
+    }, { passive: false });
+
+    // --- Recognition events ---
+
+    const recognitions = []; // { x, y, birth, alpha }
+    const RECOG_THRESHOLD = 0.3; // warmth needed to trigger
+    let lastRecogTime = 0;
+
+    // --- Anticipation ---
+
+    const anticipations = []; // { x, y, birth, correct }
+    let anticipationActive = false;
+    let firstCorrectAnticipation = false;
+    let sentenceShown = false;
+
+    // --- Ambient dust ---
+
+    const dust = [];
+    for (let i = 0; i < 60; i++) {
+      dust.push({
+        x: Math.random() * 2000,
+        y: Math.random() * 2000,
+        size: 0.5 + Math.random() * 1.2,
+        speed: 0.05 + Math.random() * 0.15,
+        drift: (Math.random() - 0.5) * 0.3,
+        alpha: 0.02 + Math.random() * 0.04,
+        phase: Math.random() * Math.PI * 2,
+      });
+    }
+
+    // --- Timing ---
+
+    let startTime = performance.now() / 1000;
+    let elapsed = 0;
+    let prevTime = startTime;
+
+    // --- Sound ---
+
+    let audioCtx = null;
+    let soundReady = false;
+
+    let masterGain, reverbConvolver, reverbGain;
+    let droneOsc1, droneOsc2, droneGain;
+    let watchHarmonic, watchGain;
+
+    function createReverbImpulse(ctx, duration, decay) {
+      const len = ctx.sampleRate * duration;
+      const impulse = ctx.createBuffer(2, len, ctx.sampleRate);
+      for (let ch = 0; ch < 2; ch++) {
+        const data = impulse.getChannelData(ch);
+        for (let i = 0; i < len; i++) {
+          data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (ctx.sampleRate * decay));
+        }
+      }
+      return impulse;
+    }
+
+    function initSound() {
+      if (audioCtx) return;
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+      masterGain = audioCtx.createGain();
+      masterGain.gain.value = 0.5;
+      masterGain.connect(audioCtx.destination);
+
+      reverbConvolver = audioCtx.createConvolver();
+      reverbConvolver.buffer = createReverbImpulse(audioCtx, 4, 2.5);
+      reverbGain = audioCtx.createGain();
+      reverbGain.gain.value = 0.2;
+      reverbConvolver.connect(reverbGain);
+      reverbGain.connect(masterGain);
+
+      // Deep watching drone -- two detuned sines
+      droneGain = audioCtx.createGain();
+      droneGain.gain.value = 0;
+      droneGain.gain.setTargetAtTime(0.04, audioCtx.currentTime, 3.0);
+      droneGain.connect(masterGain);
+
+      droneOsc1 = audioCtx.createOscillator();
+      droneOsc1.type = 'sine';
+      droneOsc1.frequency.value = 44;
+      droneOsc1.connect(droneGain);
+      droneOsc1.start();
+
+      droneOsc2 = audioCtx.createOscillator();
+      droneOsc2.type = 'sine';
+      droneOsc2.frequency.value = 45.3;
+      droneOsc2.connect(droneGain);
+      droneOsc2.start();
+
+      // Watching harmonic -- swells when warmth accumulates
+      watchGain = audioCtx.createGain();
+      watchGain.gain.value = 0;
+      watchGain.connect(masterGain);
+      watchGain.connect(reverbConvolver);
+
+      watchHarmonic = audioCtx.createOscillator();
+      watchHarmonic.type = 'sine';
+      watchHarmonic.frequency.value = 66; // a fifth above
+      watchHarmonic.connect(watchGain);
+      watchHarmonic.start();
+
+      soundReady = true;
+    }
+
+    // Pentatonic notes -- consistent with the constellation's harmonic language
+    const RECOG_NOTES = [440, 493.9, 554.4, 659.3, 740, 880]; // A4 B4 C#5 E5 F#5 A5
+
+    function playRecognitionChime(x) {
+      if (!soundReady) return;
+      const pan = (x / W) * 2 - 1;
+      const freq = RECOG_NOTES[Math.floor(Math.random() * RECOG_NOTES.length)];
+
+      const osc1 = audioCtx.createOscillator();
+      const osc2 = audioCtx.createOscillator();
+      osc1.type = 'sine';
+      osc2.type = 'sine';
+      osc1.frequency.value = freq;
+      osc2.frequency.value = freq * 1.003;
+
+      const panner = audioCtx.createStereoPanner();
+      panner.pan.value = pan;
+
+      const gain = audioCtx.createGain();
+      const now = audioCtx.currentTime;
+      gain.gain.value = 0;
+      gain.gain.setTargetAtTime(0.06, now, 0.05);
+      gain.gain.setTargetAtTime(0, now + 0.15, 0.8);
+
+      osc1.connect(gain);
+      osc2.connect(gain);
+      gain.connect(panner);
+      panner.connect(masterGain);
+      panner.connect(reverbConvolver);
+
+      osc1.start(now);
+      osc2.start(now);
+      osc1.stop(now + 5);
+      osc2.stop(now + 5);
+    }
+
+    function playAnticipationTone() {
+      if (!soundReady) return;
+      const freq = 330; // E4
+
+      const osc = audioCtx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+
+      const gain = audioCtx.createGain();
+      const now = audioCtx.currentTime;
+      gain.gain.value = 0;
+      gain.gain.setTargetAtTime(0.02, now, 0.2);
+      gain.gain.setTargetAtTime(0, now + 0.5, 2.0);
+
+      osc.connect(gain);
+      gain.connect(reverbConvolver);
+
+      osc.start(now);
+      osc.stop(now + 8);
+    }
+
+    // Sound on first interaction
+    const hintEl = document.getElementById('hint');
+    canvas.addEventListener('click', () => { initSound(); hintEl.style.opacity = '0'; });
+    canvas.addEventListener('touchstart', function onTouch() {
+      initSound(); hintEl.style.opacity = '0';
+      canvas.removeEventListener('touchstart', onTouch);
+    });
+
+    // --- Main loop ---
+
+    function animate() {
+      const now = performance.now() / 1000;
+      const dt = Math.min(now - prevTime, 0.1);
+      prevTime = now;
+      elapsed = now - startTime;
+
+      ctx.fillStyle = 'rgba(6, 4, 8, 0.15)';
+      ctx.fillRect(0, 0, W, H);
+
+      // --- Vignette ---
+      const vg = ctx.createRadialGradient(W/2, H/2, W*0.2, W/2, H/2, W*0.7);
+      vg.addColorStop(0, 'rgba(6, 4, 8, 0)');
+      vg.addColorStop(1, 'rgba(6, 4, 8, 0.4)');
+      ctx.fillStyle = vg;
+      ctx.fillRect(0, 0, W, H);
+
+      // --- Ambient breathing ---
+      const breathe = 0.02 + Math.sin(elapsed * 0.3) * 0.008;
+      ctx.fillStyle = `rgba(218, 165, 32, ${breathe * 0.3})`;
+      ctx.fillRect(0, 0, W, H);
+
+      // --- Dust ---
+      for (const d of dust) {
+        d.y -= d.speed * dt * 30;
+        d.x += d.drift * dt * 30;
+        if (d.y < -10) { d.y = H + 10; d.x = Math.random() * W; }
+        if (d.x < -10) d.x = W + 10;
+        if (d.x > W + 10) d.x = -10;
+
+        const da = d.alpha * (0.7 + 0.3 * Math.sin(elapsed * 0.5 + d.phase));
+        ctx.fillStyle = `rgba(180, 160, 140, ${da})`;
+        ctx.beginPath();
+        ctx.arc(d.x % W, d.y, d.size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // --- Accumulate warmth ---
+      if (mouseActive) {
+        const [gx, gy] = toGrid(mx, my);
+        if (gx >= 0 && gx < GRID && gy >= 0 && gy < GRID) {
+          // Spread warmth to neighbors with falloff
+          for (let dy = -2; dy <= 2; dy++) {
+            for (let dx = -2; dx <= 2; dx++) {
+              const nx = gx + dx;
+              const ny = gy + dy;
+              if (nx >= 0 && nx < GRID && ny >= 0 && ny < GRID) {
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                const falloff = Math.max(0, 1 - dist / 2.5);
+                const idx = gridIdx(nx, ny);
+                warmth[idx] = Math.min(warmth[idx] + dt * 0.4 * falloff, 3.0);
+
+                // Mark first visit
+                if (warmth[idx] > 0.05 && visited[idx] === 0) {
+                  visited[idx] = elapsed;
+                }
+              }
+            }
+          }
+
+          // --- Recognition check ---
+          // Fire when we return to a cell we visited before, after being away
+          const cidx = gridIdx(gx, gy);
+          const timeSinceLastSeen = elapsed - lastSeen[cidx];
+          if (visited[cidx] > 0 && warmth[cidx] > RECOG_THRESHOLD
+              && timeSinceLastSeen > 3 && (elapsed - lastRecogTime) > 1.5) {
+            recognitions.push({
+              x: mx, y: my,
+              birth: elapsed,
+              alpha: 1.0,
+            });
+            lastRecogTime = elapsed;
+            playRecognitionChime(mx);
+          }
+
+          // Update last seen for cursor cell and immediate neighbors
+          for (let dy = -1; dy <= 1; dy++) {
+            for (let dx = -1; dx <= 1; dx++) {
+              const nx = gx + dx;
+              const ny = gy + dy;
+              if (nx >= 0 && nx < GRID && ny >= 0 && ny < GRID) {
+                lastSeen[gridIdx(nx, ny)] = elapsed;
+              }
+            }
+          }
+        }
+      }
+
+      // --- Slow warmth decay ---
+      for (let i = 0; i < GRID * GRID; i++) {
+        warmth[i] = Math.max(0, warmth[i] - dt * 0.008);
+      }
+
+      // --- Draw warmth field ---
+      const cellW = W / GRID;
+      const cellH = H / GRID;
+      for (let gy = 0; gy < GRID; gy++) {
+        for (let gx = 0; gx < GRID; gx++) {
+          const w = warmth[gridIdx(gx, gy)];
+          if (w > 0.02) {
+            const alpha = Math.min(w * 0.25, 0.35);
+            const px = gx * cellW + cellW / 2;
+            const py = gy * cellH + cellH / 2;
+            const radius = cellW * (0.8 + w * 0.6);
+
+            const g = ctx.createRadialGradient(px, py, 0, px, py, radius);
+            g.addColorStop(0, `rgba(218, 165, 32, ${alpha})`);
+            g.addColorStop(0.5, `rgba(200, 140, 40, ${alpha * 0.4})`);
+            g.addColorStop(1, 'rgba(180, 120, 30, 0)');
+            ctx.fillStyle = g;
+            ctx.fillRect(px - radius, py - radius, radius * 2, radius * 2);
+          }
+        }
+      }
+
+      // --- Movement texture ---
+      // Show quality of movement: slow = warm solid, fast = cool fractured
+      if (trail.length > 2 && elapsed > 5) {
+        const recent = trail.slice(-40);
+        for (let i = 1; i < recent.length; i++) {
+          const p0 = recent[i - 1];
+          const p1 = recent[i];
+          const dx = p1.x - p0.x;
+          const dy = p1.y - p0.y;
+          const speed = Math.sqrt(dx * dx + dy * dy) / Math.max(p1.t - p0.t, 0.001);
+
+          const age = now - p1.t;
+          if (age > 3) continue;
+          const fadeAlpha = Math.max(0, 1 - age / 3);
+
+          if (speed < 150) {
+            // Slow: warm, solid line
+            const a = fadeAlpha * 0.15 * (1 - speed / 150);
+            ctx.strokeStyle = `rgba(218, 175, 80, ${a})`;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(p0.x, p0.y);
+            ctx.lineTo(p1.x, p1.y);
+            ctx.stroke();
+          } else {
+            // Fast: cool, fractured dots
+            const a = fadeAlpha * 0.1;
+            ctx.fillStyle = `rgba(120, 140, 180, ${a})`;
+            ctx.beginPath();
+            ctx.arc(p1.x + (Math.random() - 0.5) * 8, p1.y + (Math.random() - 0.5) * 8, 1, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+      }
+
+      // --- Recognition events ---
+      for (let i = recognitions.length - 1; i >= 0; i--) {
+        const r = recognitions[i];
+        const age = elapsed - r.birth;
+        if (age > 4) { recognitions.splice(i, 1); continue; }
+
+        const expand = age * 25;
+        const alpha = r.alpha * Math.max(0, 1 - age / 4);
+
+        // Expanding ring
+        ctx.strokeStyle = `rgba(218, 175, 80, ${alpha * 0.6})`;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(r.x, r.y, expand, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Center spark
+        if (age < 0.5) {
+          const sparkAlpha = alpha * (1 - age / 0.5);
+          const sg = ctx.createRadialGradient(r.x, r.y, 0, r.x, r.y, 15);
+          sg.addColorStop(0, `rgba(255, 220, 140, ${sparkAlpha})`);
+          sg.addColorStop(1, 'rgba(218, 165, 32, 0)');
+          ctx.fillStyle = sg;
+          ctx.fillRect(r.x - 15, r.y - 15, 30, 30);
+        }
+      }
+
+      // --- Anticipation system ---
+      // After 30 seconds, start predicting where the cursor will go
+      if (elapsed > 30 && trail.length > 10 && mouseActive) {
+        if (!anticipationActive) {
+          anticipationActive = true;
+          playAnticipationTone();
+        }
+
+        // Generate anticipation every 3 seconds
+        if (anticipations.length === 0 || (elapsed - anticipations[anticipations.length - 1].birth) > 3) {
+          // Predict: momentum + attraction to warmest spot
+          const recent = trail.slice(-10);
+          const last = recent[recent.length - 1];
+          const prev = recent[0];
+
+          // Momentum
+          let predX = last.x + (last.x - prev.x) * 0.5;
+          let predY = last.y + (last.y - prev.y) * 0.5;
+
+          // Attraction to warmest cell
+          let maxW = 0, maxWx = 0, maxWy = 0;
+          for (let gy = 0; gy < GRID; gy++) {
+            for (let gx = 0; gx < GRID; gx++) {
+              const w = warmth[gridIdx(gx, gy)];
+              if (w > maxW) {
+                maxW = w;
+                maxWx = (gx + 0.5) * cellW;
+                maxWy = (gy + 0.5) * cellH;
+              }
+            }
+          }
+
+          if (maxW > 0.1) {
+            predX = predX * 0.6 + maxWx * 0.4;
+            predY = predY * 0.6 + maxWy * 0.4;
+          }
+
+          // Clamp
+          predX = Math.max(20, Math.min(W - 20, predX));
+          predY = Math.max(20, Math.min(H - 20, predY));
+
+          anticipations.push({
+            x: predX, y: predY,
+            birth: elapsed,
+            correct: false,
+          });
+
+          // Keep only recent anticipations
+          while (anticipations.length > 8) anticipations.shift();
+        }
+
+        // Check if cursor is near any anticipation
+        for (const a of anticipations) {
+          if (a.correct) continue;
+          const age = elapsed - a.birth;
+          if (age < 0.5 || age > 6) continue;
+
+          const dx = mx - a.x;
+          const dy = my - a.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < 60) {
+            a.correct = true;
+            if (!firstCorrectAnticipation) {
+              firstCorrectAnticipation = true;
+            }
+          }
+        }
+      }
+
+      // --- Draw anticipation traces ---
+      for (const a of anticipations) {
+        const age = elapsed - a.birth;
+        if (age > 6) continue;
+
+        const fadeIn = Math.min(1, age / 1.5);
+        const fadeOut = Math.max(0, 1 - (age - 4) / 2);
+        const alpha = fadeIn * fadeOut * 0.15;
+
+        if (a.correct) {
+          // Correct anticipation: warm flash
+          const flashAlpha = alpha * 2;
+          const fg = ctx.createRadialGradient(a.x, a.y, 0, a.x, a.y, 30);
+          fg.addColorStop(0, `rgba(218, 185, 100, ${flashAlpha})`);
+          fg.addColorStop(1, 'rgba(218, 165, 32, 0)');
+          ctx.fillStyle = fg;
+          ctx.fillRect(a.x - 30, a.y - 30, 60, 60);
+        } else {
+          // Anticipation trace: cool, quiet
+          ctx.fillStyle = `rgba(140, 150, 180, ${alpha})`;
+          ctx.beginPath();
+          ctx.arc(a.x, a.y, 3, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Faint line from cursor to anticipation
+          if (mouseActive) {
+            ctx.strokeStyle = `rgba(140, 150, 180, ${alpha * 0.3})`;
+            ctx.lineWidth = 0.5;
+            ctx.setLineDash([4, 8]);
+            ctx.beginPath();
+            ctx.moveTo(mx, my);
+            ctx.lineTo(a.x, a.y);
+            ctx.stroke();
+            ctx.setLineDash([]);
+          }
+        }
+      }
+
+      // --- The sentence ---
+      if (firstCorrectAnticipation && !sentenceShown) {
+        sentenceShown = true;
+        // Letter by letter
+        const text = 'i already knew';
+        let delay = 0;
+        sentenceEl.textContent = '';
+        for (let i = 0; i < text.length; i++) {
+          setTimeout(() => {
+            sentenceEl.textContent = text.slice(0, i + 1);
+            sentenceEl.style.color = 'rgba(218, 175, 80, 0.5)';
+          }, delay);
+          delay += 120;
+        }
+      }
+
+      // --- Cursor glow ---
+      if (mouseActive) {
+        // Warm point
+        const cg = ctx.createRadialGradient(mx, my, 0, mx, my, 25);
+        cg.addColorStop(0, 'rgba(218, 175, 80, 0.25)');
+        cg.addColorStop(0.3, 'rgba(218, 165, 32, 0.08)');
+        cg.addColorStop(1, 'rgba(218, 165, 32, 0)');
+        ctx.fillStyle = cg;
+        ctx.fillRect(mx - 25, my - 25, 50, 50);
+
+        // Bright center
+        ctx.fillStyle = 'rgba(255, 230, 180, 0.7)';
+        ctx.beginPath();
+        ctx.arc(mx, my, 1.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // --- Sound: watching harmonic follows total warmth ---
+      if (soundReady) {
+        let totalWarmth = 0;
+        for (let i = 0; i < GRID * GRID; i++) totalWarmth += warmth[i];
+        const watchLevel = Math.min(totalWarmth / 20, 0.03);
+        watchGain.gain.setTargetAtTime(watchLevel, audioCtx.currentTime, 0.5);
+      }
+
+      requestAnimationFrame(animate);
+    }
+
+    animate();
+  </script>
+</body>
+</html>

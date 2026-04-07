@@ -134,6 +134,7 @@
       784.0,  // G5  - corridor
       880.0,  // A5  - mirror
       1046.5, // C6  - settle
+      1174.7, // D6  - regard
     ];
 
     function createReverbImpulse(ctx, duration, decay) {
@@ -299,7 +300,7 @@
   <script>
     // --- Portal ---
     //
-    // Eleven stars. Each one a doorway.
+    // Twelve stars. Each one a doorway.
     // Dust drifts. Stars breathe. The front door was never locked.
     //
     // Entrance choreography: stars arrive one by one, threads draw
@@ -412,6 +413,14 @@
         baseSize: 2.3,
         glowSize: 28,
       },
+      {
+        name: 'regard',
+        desc: 'the piece watches where you go \u2014 it builds a portrait of your attention',
+        url: 'regard/index.html',
+        color: [0.85, 0.72, 0.42],
+        baseSize: 2.4,
+        glowSize: 28,
+      },
     ];
 
     const starPositions = [
@@ -426,6 +435,7 @@
       { fx: 0.50, fy: 0.82 },
       { fx: 0.78, fy: 0.55 },
       { fx: 0.35, fy: 0.42 },
+      { fx: 0.20, fy: 0.36 },
     ];
 
     const threads = [
@@ -436,13 +446,14 @@
       [8, 2], [8, 6],
       [9, 1], [9, 3], [9, 7],
       [10, 0], [10, 4], [10, 8],
+      [11, 9], [11, 8], [11, 10],
     ];
 
     // --- Entrance timing ---
 
-    const STAR_ARRIVE = [0.8, 1.6, 2.4, 3.0, 3.6, 4.2, 4.8, 5.4, 6.0, 6.6, 7.2];
+    const STAR_ARRIVE = [0.8, 1.6, 2.4, 3.0, 3.6, 4.2, 4.8, 5.4, 6.0, 6.6, 7.2, 7.8];
     const STAR_FADE_DUR = 1.2;
-    const TITLE_ARRIVE = 8.2;
+    const TITLE_ARRIVE = 8.8;
     const TITLE_FADE_DUR = 2.0;
 
     function arrivalAlpha(t, arriveAt, fadeDur) {
