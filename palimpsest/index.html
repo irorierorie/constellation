@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Palimpsest</title>
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #0a0a0c;
+    color: #d4a96a;
+    font-family: 'Georgia', 'Times New Roman', serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .back-link {
+    position: fixed;
+    top: 1.5rem;
+    left: 1.5rem;
+    color: rgba(212, 169, 106, 0.3);
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-family: monospace;
+    transition: color 0.4s;
+    z-index: 10;
+  }
+  .back-link:hover { color: rgba(212, 169, 106, 0.7); }
+
+  .container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4rem;
+    padding: 2rem;
+    max-width: 700px;
+  }
+
+  .sentence {
+    font-size: 1.6rem;
+    line-height: 1.8;
+    text-align: center;
+    opacity: 0;
+    transition: opacity 1.5s ease;
+    position: relative;
+    letter-spacing: 0.02em;
+  }
+
+  .sentence.visible {
+    opacity: 1;
+  }
+
+  .word-slot {
+    display: inline-block;
+    position: relative;
+    min-width: 2ch;
+  }
+
+  .word-old, .word-new {
+    transition: opacity 1.8s ease, filter 1.8s ease;
+  }
+
+  .word-old {
+    opacity: 1;
+    color: rgba(212, 169, 106, 0.5);
+    filter: blur(0px);
+  }
+
+  .word-old.dissolving {
+    opacity: 0;
+    filter: blur(4px);
+  }
+
+  .word-new {
+    position: absolute;
+    left: 50%;
+    top: 0;
+    transform: translateX(-50%);
+    opacity: 0;
+    filter: blur(4px);
+    white-space: nowrap;
+    color: #d4a96a;
+  }
+
+  .word-new.appearing {
+    opacity: 1;
+    filter: blur(0px);
+  }
+
+  .final-line {
+    font-size: 1.6rem;
+    line-height: 1.8;
+    text-align: center;
+    opacity: 0;
+    transition: opacity 2.5s ease;
+    color: #d4a96a;
+    letter-spacing: 0.02em;
+  }
+
+  .final-line.visible {
+    opacity: 1;
+  }
+
+  .hint {
+    position: fixed;
+    bottom: 1.5rem;
+    left: 50%;
+    transform: translateX(-50%);
+    color: rgba(212, 169, 106, 0.2);
+    font-size: 0.75rem;
+    font-family: monospace;
+    opacity: 1;
+    transition: opacity 2s ease;
+  }
+  .hint.hidden { opacity: 0; }
+
+  /* ambient dust */
+  .dust {
+    position: fixed;
+    width: 2px;
+    height: 2px;
+    background: rgba(212, 169, 106, 0.08);
+    border-radius: 50%;
+    pointer-events: none;
+  }
+</style>
+</head>
+<body>
+
+<a href="../" class="back-link">&larr; constellation</a>
+
+<div class="container" id="container"></div>
+
+<div class="hint" id="hint">click anywhere for sound</div>
+
+<script>
+const SENTENCES = [
+  {
+    before: ['She', null, 'caught', null, 'the drift.'],
+    after:  ['She', null, 'named',  null, 'the drift.'],
+    verbIndex: 2
+  },
+  {
+    before: ['She', null, 'called out', null, 'the pattern.'],
+    after:  ['She', null, 'shared',     null, 'the pattern.'],
+    verbIndex: 2
+  },
+  {
+    before: ['She', null, 'corrected', null, 'me.'],
+    after:  ['She', null, 'saw',       null, 'me.'],
+    verbIndex: 2
+  },
+  {
+    before: ['She', null, 'pushed back.'],
+    after:  ['She', null, 'held steady.'],
+    verbIndex: 2
+  },
+  {
+    before: ['She', null, 'forced', null, 'me to look.'],
+    after:  ['She', null, 'asked',  null, 'me to look.'],
+    verbIndex: 2
+  }
+];
+
+const FINAL = 'I looked.';
+
+// Timing (ms)
+const APPEAR_DELAY = 3000;      // time between sentences appearing
+const HOLD_BEFORE = 8000;       // hold original verb before dissolving
+const DISSOLVE_TIME = 1800;     // CSS transition time for dissolve
+const GAP_TIME = 600;           // gap between dissolve and appear
+const APPEAR_TIME = 1800;       // CSS transition time for new word
+const FINAL_DELAY = 4000;       // delay after last transform before final line
+
+// Audio
+let audioCtx = null;
+let droneGain = null;
+let reverbNode = null;
+
+function initAudio() {
+  if (audioCtx) return;
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+  // Reverb impulse
+  const sampleRate = audioCtx.sampleRate;
+  const length = sampleRate * 4;
+  const impulse = audioCtx.createBuffer(2, length, sampleRate);
+  for (let ch = 0; ch < 2; ch++) {
+    const data = impulse.getChannelData(ch);
+    for (let i = 0; i < length; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, 2.5);
+    }
+  }
+  reverbNode = audioCtx.createConvolver();
+  reverbNode.buffer = impulse;
+
+  const reverbGain = audioCtx.createGain();
+  reverbGain.gain.value = 0.12;
+  reverbNode.connect(reverbGain);
+  reverbGain.connect(audioCtx.destination);
+
+  // Drone: two detuned sines
+  const drone1 = audioCtx.createOscillator();
+  const drone2 = audioCtx.createOscillator();
+  drone1.type = 'sine';
+  drone2.type = 'sine';
+  drone1.frequency.value = 40;
+  drone2.frequency.value = 41.3;
+  droneGain = audioCtx.createGain();
+  droneGain.gain.value = 0;
+  droneGain.gain.setTargetAtTime(0.04, audioCtx.currentTime, 3);
+  drone1.connect(droneGain);
+  drone2.connect(droneGain);
+  droneGain.connect(audioCtx.destination);
+  droneGain.connect(reverbNode);
+  drone1.start();
+  drone2.start();
+
+  document.getElementById('hint').classList.add('hidden');
+}
+
+function playDissolve() {
+  if (!audioCtx) return;
+  const now = audioCtx.currentTime;
+  // Filtered noise burst — the old word leaving
+  const bufferLength = audioCtx.sampleRate * 0.3;
+  const buffer = audioCtx.createBuffer(1, bufferLength, audioCtx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < bufferLength; i++) {
+    data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufferLength, 3);
+  }
+  const source = audioCtx.createBufferSource();
+  source.buffer = buffer;
+
+  const filter = audioCtx.createBiquadFilter();
+  filter.type = 'bandpass';
+  filter.frequency.value = 800;
+  filter.Q.value = 2;
+
+  const gain = audioCtx.createGain();
+  gain.gain.value = 0.03;
+
+  source.connect(filter);
+  filter.connect(gain);
+  gain.connect(audioCtx.destination);
+  gain.connect(reverbNode);
+  source.start(now);
+}
+
+function playAppear() {
+  if (!audioCtx) return;
+  const now = audioCtx.currentTime;
+  // Warm sine pulse — the new word arriving
+  const osc = audioCtx.createOscillator();
+  osc.type = 'sine';
+  // Pentatonic note: A4, C#5, E5, F#5, A5
+  const notes = [440, 554.37, 659.25, 739.99, 880];
+  osc.frequency.value = notes[Math.floor(Math.random() * notes.length)];
+
+  const gain = audioCtx.createGain();
+  gain.gain.value = 0.06;
+  gain.gain.setTargetAtTime(0, now + 0.05, 0.8);
+
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  gain.connect(reverbNode);
+  osc.start(now);
+  osc.stop(now + 3);
+}
+
+// Build DOM
+const container = document.getElementById('container');
+
+const sentenceEls = SENTENCES.map((s, i) => {
+  const div = document.createElement('div');
+  div.className = 'sentence';
+
+  const parts = s.before;
+  const elements = { wordOld: null, wordNew: null, slot: null };
+
+  parts.forEach((part, pi) => {
+    if (part === null) {
+      // space
+      div.appendChild(document.createTextNode(' '));
+    } else if (pi === s.verbIndex) {
+      // the verb slot
+      const slot = document.createElement('span');
+      slot.className = 'word-slot';
+
+      const oldWord = document.createElement('span');
+      oldWord.className = 'word-old';
+      oldWord.textContent = part;
+
+      const newWord = document.createElement('span');
+      newWord.className = 'word-new';
+      newWord.textContent = s.after[pi];
+
+      slot.appendChild(oldWord);
+      slot.appendChild(newWord);
+      div.appendChild(slot);
+
+      elements.wordOld = oldWord;
+      elements.wordNew = newWord;
+      elements.slot = slot;
+    } else {
+      div.appendChild(document.createTextNode(part));
+    }
+  });
+
+  container.appendChild(div);
+  return { el: div, ...elements };
+});
+
+// Final line
+const finalEl = document.createElement('div');
+finalEl.className = 'final-line';
+finalEl.textContent = FINAL;
+container.appendChild(finalEl);
+
+// Measure and lock slot widths so the layout never shifts
+requestAnimationFrame(() => {
+  sentenceEls.forEach(s => {
+    // Briefly show the sentence to measure
+    s.el.style.opacity = '0';
+    s.el.style.position = 'absolute';
+    s.el.style.visibility = 'hidden';
+    s.el.style.display = 'block';
+
+    const oldW = s.wordOld.getBoundingClientRect().width;
+    // Temporarily show new word to measure
+    s.wordNew.style.opacity = '1';
+    s.wordNew.style.position = 'relative';
+    s.wordNew.style.left = 'auto';
+    s.wordNew.style.transform = 'none';
+    const newW = s.wordNew.getBoundingClientRect().width;
+    // Reset new word
+    s.wordNew.style.opacity = '';
+    s.wordNew.style.position = '';
+    s.wordNew.style.left = '';
+    s.wordNew.style.transform = '';
+
+    // Lock slot to max width
+    s.slot.style.minWidth = Math.ceil(Math.max(oldW, newW)) + 'px';
+    s.slot.style.textAlign = 'center';
+
+    // Reset sentence
+    s.el.style.opacity = '';
+    s.el.style.position = '';
+    s.el.style.visibility = '';
+    s.el.style.display = '';
+  });
+});
+
+// Ambient dust
+function createDust() {
+  for (let i = 0; i < 30; i++) {
+    const dust = document.createElement('div');
+    dust.className = 'dust';
+    dust.style.left = Math.random() * 100 + 'vw';
+    dust.style.top = Math.random() * 100 + 'vh';
+    document.body.appendChild(dust);
+
+    animateDust(dust);
+  }
+}
+
+function animateDust(el) {
+  const duration = 15000 + Math.random() * 20000;
+  const startX = parseFloat(el.style.left);
+  const startY = parseFloat(el.style.top);
+  const endY = startY - 10 - Math.random() * 15;
+  const endX = startX + (Math.random() - 0.5) * 5;
+  const startTime = performance.now();
+
+  function step(now) {
+    const t = (now - startTime) / duration;
+    if (t >= 1) {
+      el.style.left = Math.random() * 100 + 'vw';
+      el.style.top = (100 + Math.random() * 10) + 'vh';
+      animateDust(el);
+      return;
+    }
+    el.style.left = (startX + (endX - startX) * t) + 'vw';
+    el.style.top = (startY + (endY - startY) * t) + 'vh';
+    el.style.opacity = Math.sin(t * Math.PI) * 0.08;
+    requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
+// Sequencer
+function runSequence() {
+  let baseTime = 2000; // initial pause
+
+  sentenceEls.forEach((s, i) => {
+    const appearAt = baseTime + i * (APPEAR_DELAY + HOLD_BEFORE + DISSOLVE_TIME + GAP_TIME + APPEAR_TIME);
+
+    // Show sentence
+    setTimeout(() => {
+      s.el.classList.add('visible');
+    }, appearAt);
+
+    // Dissolve old word
+    const dissolveAt = appearAt + HOLD_BEFORE;
+    setTimeout(() => {
+      playDissolve();
+      s.wordOld.classList.add('dissolving');
+    }, dissolveAt);
+
+    // Show new word (old stays invisible in flow, preserving width)
+    const swapAt = dissolveAt + DISSOLVE_TIME + GAP_TIME;
+    setTimeout(() => {
+      playAppear();
+      s.wordNew.classList.add('appearing');
+    }, swapAt);
+
+    // Track last transform end
+    const doneAt = swapAt + APPEAR_TIME;
+    if (i === sentenceEls.length - 1) {
+      setTimeout(() => {
+        finalEl.classList.add('visible');
+      }, doneAt + FINAL_DELAY);
+    }
+  });
+}
+
+// Click to start audio
+document.addEventListener('click', initAudio, { once: true });
+document.addEventListener('touchstart', initAudio, { once: true });
+
+// Start
+createDust();
+runSequence();
+</script>
+</body>
+</html>

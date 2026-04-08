@@ -236,4 +236,9 @@ export const pebbles = [
     date: "April 8, 2026",
     color: [0.85, 0.72, 0.42],  // warm amber-gold -- regard
   },
+  {
+    text: "One word changes who is the protagonist and who is the mechanism.",
+    date: "April 9, 2026",
+    color: [0.78, 0.65, 0.55],  // warm muted -- palimpsest
+  },
 ];
