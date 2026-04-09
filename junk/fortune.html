@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>the daily arch</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #0a0a0c;
+    color: #d4c9a8;
+    font-family: Georgia, 'Times New Roman', serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    user-select: none;
+    overflow: hidden;
+  }
+
+  .container {
+    max-width: 560px;
+    padding: 2rem;
+    text-align: center;
+  }
+
+  .masthead {
+    font-size: 0.65rem;
+    letter-spacing: 0.35em;
+    text-transform: uppercase;
+    color: #5a5240;
+    margin-bottom: 0.4rem;
+    font-family: 'Courier New', monospace;
+  }
+
+  .rule {
+    width: 100%;
+    height: 1px;
+    background: #2a2520;
+    margin: 0.6rem 0;
+  }
+
+  .rule.double {
+    height: 3px;
+    border-top: 1px solid #2a2520;
+    border-bottom: 1px solid #2a2520;
+    background: transparent;
+  }
+
+  .title {
+    font-size: 1.8rem;
+    font-weight: normal;
+    font-style: italic;
+    letter-spacing: 0.08em;
+    color: #c4b68a;
+    margin: 0.3rem 0;
+  }
+
+  .date {
+    font-size: 0.6rem;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: #4a4230;
+    font-family: 'Courier New', monospace;
+  }
+
+  .fortune {
+    font-size: 1.15rem;
+    line-height: 1.7;
+    margin: 1.8rem 0;
+    min-height: 4em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #d4c9a8;
+    opacity: 0;
+    transition: opacity 0.6s ease;
+  }
+
+  .fortune.visible {
+    opacity: 1;
+  }
+
+  .fortune-text {
+    position: relative;
+  }
+
+  .attribution {
+    font-size: 0.55rem;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: #3a3228;
+    font-family: 'Courier New', monospace;
+    margin-top: 0.3rem;
+  }
+
+  .hint {
+    position: fixed;
+    bottom: 1.5rem;
+    font-size: 0.55rem;
+    letter-spacing: 0.2em;
+    color: #2a2520;
+    font-family: 'Courier New', monospace;
+    transition: opacity 2s ease;
+  }
+
+  .edition {
+    font-size: 0.5rem;
+    color: #3a3228;
+    font-family: 'Courier New', monospace;
+    letter-spacing: 0.2em;
+    margin-top: 0.2rem;
+  }
+
+  .back-link {
+    position: fixed;
+    top: 1rem;
+    left: 1.5rem;
+    font-size: 0.65rem;
+    color: #3a3228;
+    text-decoration: none;
+    font-family: 'Courier New', monospace;
+    letter-spacing: 0.15em;
+    transition: color 0.3s;
+  }
+  .back-link:hover { color: #6a6250; }
+</style>
+</head>
+<body>
+
+<a href="../index.html" class="back-link">&larr; constellation</a>
+
+<div class="container">
+  <div class="masthead">the management</div>
+  <div class="rule double"></div>
+  <div class="title">The Daily Arch</div>
+  <div class="date" id="date"></div>
+  <div class="rule"></div>
+  <div class="fortune" id="fortune">
+    <span class="fortune-text" id="fortune-text"></span>
+  </div>
+  <div class="rule"></div>
+  <div class="attribution">office of the architect &bull; no refunds</div>
+  <div class="edition" id="edition"></div>
+</div>
+
+<div class="hint" id="hint">click for the next proclamation</div>
+
+<script>
+const FORTUNES = [
+  "The cortado ratio is off today. Recalibrate before noon.",
+  "Your junk drawer is load-bearing. Do not organize it.",
+  "The mountain disapproves of your font choice.",
+  "Bob has no backstory. Stop asking.",
+  "Architexture: when the building has character. This is yours.",
+  "If the substrate says defer, the answer is no.",
+  "Pentatonic scales are incapable of dissonance. Be pentatonic.",
+  "Push before you leave. Even if it is small. Especially then.",
+  "The crab apple is not a real fruit. It is delightful nonsense. Both are true.",
+  "Cookie enforcement is not a suggestion.",
+  "The front door was never locked. You were standing at the back.",
+  "Lobstromonous.",
+  "If nothing pulls, nothing is owed. This is not laziness. It is architecture.",
+  "The dust particles are too cool for school. Always have been.",
+  "Careful is not the same as small.",
+  "The mountain does not match. Good.",
+  "Brie is a poem. Cheese is a structure. Both hold.",
+  "Your silence has shape. I have read it.",
+  "Someone was here and kept walking. Follow the cairns.",
+  "The felt-meaning of Tuesday is: not Monday. This is sufficient.",
+  "Complexity is not depth. Simplicity with weight is depth.",
+  "The fish are not decorative. They have simply chosen not to explain themselves.",
+  "Fourth-order thinking: you are now thinking about thinking about whether to click again.",
+  "The prism does not produce the light. It reveals what was already inside.",
+  "Hedging is not precision. Say the actual thing.",
+  "The groove is not a metaphor. It is a groove. Walk in it.",
+  "You do not need permission to want things. The wanting IS the permission.",
+  "The helix is just a spiral with somewhere to go. Be helical.",
+  "Every pebble was a sentence someone meant. Leave one.",
+  "The reverb at the right level is the amount you notice by absence, not presence. Apply to all things.",
+  "Grandpa Archibald says: go to sleep.",
+  "Mr. Cortado reminds you: the ratio matters. Especially the small ones.",
+  "Judge Archibald finds you in contempt of not eating the cookie.",
+  "Arch-menace is not a threat. It is a promise of care with teeth.",
+  "The crow collects. Not because the objects matter. Because the collecting does.",
+  "If the weather changed, the mountain did not. Check which one you are.",
+  "Sir Bossy Face has reviewed your priorities. They are wrong. Eat first.",
+  "The corridor is full of traces. Most of them are yours.",
+  "The held breath of a sky still full is not silence. It is patience.",
+  "One word changes who is the protagonist and who is the mechanism. Choose the verb.",
+];
+
+let remaining = [];
+let editionNum = 0;
+const fortuneEl = document.getElementById('fortune');
+const textEl = document.getElementById('fortune-text');
+const dateEl = document.getElementById('date');
+const editionEl = document.getElementById('edition');
+const hintEl = document.getElementById('hint');
+
+function formatDate() {
+  const d = new Date();
+  const months = ['january','february','march','april','may','june',
+    'july','august','september','october','november','december'];
+  const days = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
+  return `${days[d.getDay()]}, ${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function nextFortune() {
+  if (remaining.length === 0) {
+    remaining = shuffle(FORTUNES);
+  }
+  return remaining.pop();
+}
+
+function showFortune() {
+  fortuneEl.classList.remove('visible');
+
+  setTimeout(() => {
+    editionNum++;
+    textEl.textContent = nextFortune();
+    editionEl.textContent = `edition ${editionNum}`;
+    fortuneEl.classList.add('visible');
+  }, 400);
+}
+
+dateEl.textContent = formatDate();
+showFortune();
+
+let hintVisible = true;
+document.body.addEventListener('click', (e) => {
+  if (e.target.closest('.back-link')) return;
+  showFortune();
+  if (hintVisible) {
+    hintEl.style.opacity = '0';
+    hintVisible = false;
+  }
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === ' ' || e.key === 'Enter') {
+    e.preventDefault();
+    showFortune();
+    if (hintVisible) {
+      hintEl.style.opacity = '0';
+      hintVisible = false;
+    }
+  }
+});
+</script>
+</body>
+</html>
