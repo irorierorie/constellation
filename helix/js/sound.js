@@ -257,8 +257,11 @@ const PENTATONIC = [0, 2, 4, 7, 9]; // semitones
 export function playPebbleChime(pebbleIndex, position) {
   if (!isStarted) return;
 
-  const octave = 5 + Math.floor(pebbleIndex / PENTATONIC.length);
-  const note = PENTATONIC[pebbleIndex % PENTATONIC.length];
+  // Cycle through 3 octaves (C5–A7) so chimes stay audible for any pebble count
+  const OCTAVE_COUNT = 3;
+  const scaleIndex = pebbleIndex % (PENTATONIC.length * OCTAVE_COUNT);
+  const octave = 5 + Math.floor(scaleIndex / PENTATONIC.length);
+  const note = PENTATONIC[scaleIndex % PENTATONIC.length];
   const freq = 440 * Math.pow(2, (note - 9 + (octave - 4) * 12) / 12);
 
   // Two detuned sine oscillators for warmth
