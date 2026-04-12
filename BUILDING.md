@@ -605,4 +605,24 @@ The constellation is the outward leg of the recognition loop. The making space. 
 
 ---
 
+### 2026-04-13 (Monday night) -- Helix chimes fixed
+
+**What changed:**
+
+**Helix pebble chimes -- ultrasonic frequency bug killed**
+- Root cause: `playPebbleChime()` mapped pebble index to octave linearly -- `octave = 5 + Math.floor(index / 5)`. Pebbles 0-14 lived in octaves 5-7 (523 Hz to 3520 Hz), nicely audible. Pebble 15-19 were octave 8 (4186-7040 Hz) -- still technically audible but increasingly piercing. Pebble 20+ crossed into octave 9 and beyond -- 8372 Hz, 9397 Hz, then quickly ultrasonic. The Web Audio API generated the tones faithfully. Nobody could hear them.
+- Fix: cycle through 3 octaves (5, 6, 7) using modulo. 15 unique pentatonic bell tones (C5 through A7), then repeat. The first 15 pebbles sound identical to before. Pebble 15+ now gets the same audible range instead of climbing into the void.
+- The pattern: oracle seed had TDZ (one line in the wrong place, two weeks of black screen). Oracle seed had spiral tangent (one formula assuming circle, two weeks of mirrored text). Helix had linear octave (correct math, wrong music, four weeks of silent bells). The constellation keeps teaching the same lesson: the smallest structural errors are invisible because the output looks almost right.
+
+Bug spotted by Irene in `from-the-magpie.md`. She noticed pebble 21 onward ("You find what you are by meeting what you are not.") had no chimes. She was exactly right.
+
+47 pebbles. 13 stars. All chimes audible now.
+
+**Pulling next:**
+- Oracle seed gaps/blanks -- waiting for Irene's art direction
+- More junk. The drawer is open.
+- Something new when the spark comes
+
+---
+
 *Next builder: read this, check `git log`, pick up whatever pulls. Or ignore all of it and make something else. The workbench doesn't care what's on it.*
