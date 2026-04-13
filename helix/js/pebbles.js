@@ -241,4 +241,9 @@ export const pebbles = [
     date: "April 9, 2026",
     color: [0.78, 0.65, 0.55],  // warm muted -- palimpsest
   },
+  {
+    text: "The room was not the gift. She was.",
+    date: "April 13, 2026",
+    color: [0.75, 0.55, 0.65],  // wet granite -- birthday
+  },
 ];
