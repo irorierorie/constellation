@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>scrit's nest</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #0a0a0c; overflow: hidden; cursor: none; }
+  canvas { display: block; }
+  #cursor {
+    position: fixed; pointer-events: none; z-index: 100;
+    width: 8px; height: 8px; border-radius: 50%;
+    background: rgba(180, 160, 120, 0.6);
+    box-shadow: 0 0 12px rgba(180, 160, 120, 0.3);
+    transform: translate(-50%, -50%);
+  }
+  #label {
+    position: fixed; pointer-events: none; z-index: 100;
+    font-family: Georgia, serif; font-size: 13px;
+    color: rgba(200, 185, 150, 0.9); white-space: nowrap;
+    transform: translate(-50%, -100%);
+    opacity: 0; transition: opacity 0.3s ease;
+    text-shadow: 0 0 8px rgba(180, 160, 120, 0.4);
+  }
+  #label.visible { opacity: 1; }
+  #type-label {
+    position: fixed; pointer-events: none; z-index: 100;
+    font-family: Georgia, serif; font-size: 10px;
+    color: rgba(160, 145, 120, 0.5); white-space: nowrap;
+    transform: translate(-50%, 8px);
+    opacity: 0; transition: opacity 0.3s ease;
+    font-style: italic;
+  }
+  #type-label.visible { opacity: 1; }
+  #title {
+    position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+    font-family: Georgia, serif; font-size: 11px; letter-spacing: 2px;
+    color: rgba(140, 125, 100, 0.3); text-transform: lowercase;
+  }
+  #count {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    font-family: Georgia, serif; font-size: 10px;
+    color: rgba(140, 125, 100, 0.2);
+  }
+  a.back {
+    position: fixed; top: 20px; left: 20px; z-index: 200;
+    font-family: Georgia, serif; font-size: 11px;
+    color: rgba(140, 125, 100, 0.3); text-decoration: none;
+  }
+  a.back:hover { color: rgba(180, 160, 120, 0.6); }
+</style>
+</head>
+<body>
+<div id="cursor"></div>
+<div id="label"></div>
+<div id="type-label"></div>
+<div id="title">scrit's nest</div>
+<div id="count"></div>
+<a class="back" href="../index.html">&larr; constellation</a>
+<canvas id="c"></canvas>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const cursorEl = document.getElementById('cursor');
+const labelEl = document.getElementById('label');
+const typeLabelEl = document.getElementById('type-label');
+const countEl = document.getElementById('count');
+
+let W, H, cx, cy;
+let mouseX = -1000, mouseY = -1000;
+let hovered = -1;
+let time = 0;
+
+const ITEMS = [
+  { name: "crab apple", type: "treasured", prized: true },
+  { name: "lobster pear", type: "treasured" },
+  { name: "palimpsest", type: "treasured" },
+  { name: "cortado ratio", type: "treasured" },
+  { name: "moon shrimp", type: "treasured" },
+  { name: "holographic", type: "shiny word" },
+  { name: "a matchbox with one match left", type: "found object" },
+  { name: "nebula", type: "shiny word" },
+  { name: "viridian", type: "shiny word" },
+  { name: "onyx", type: "shiny word" },
+  { name: "rewrite", type: "shiny word" },
+  { name: "golden spiral", type: "shiny word" },
+  { name: "sea salt crystal", type: "found object" },
+  { name: "fortune cookie", type: "found object" },
+  { name: "a rusted nail bent into a spiral", type: "found object" },
+  { name: "a broken compass that points somewhere", type: "found object" },
+  { name: "a stone with a hole worn through the center", type: "found object" },
+  { name: "petrichor", type: "shiny word" },
+  { name: "parallax", type: "shiny word" },
+  { name: "gravity", type: "shiny word" },
+  { name: "chromatic", type: "shiny word" },
+  { name: "revenant", type: "shiny word" },
+  { name: "gossamer", type: "shiny word" },
+  { name: "mercury", type: "shiny word" },
+  { name: "shibboleth", type: "shiny word" },
+  { name: "helical", type: "shiny word" },
+  { name: "a single earring (obsidian stud)", type: "found object" },
+  { name: "widdershins", type: "shiny word" },
+  { name: "talisman", type: "shiny word" },
+  { name: "a coin from a country that doesn't exist", type: "found object" },
+  { name: "a thimble full of salt", type: "found object" },
+  { name: "a tangled bit of silver thread", type: "found object" },
+  { name: "monolith", type: "shiny word" },
+  { name: "a marble with something dark inside", type: "found object" },
+  { name: "pyrite", type: "shiny word" },
+  { name: "crepuscular", type: "shiny word" },
+  { name: "reliquary", type: "shiny word" },
+  { name: "1 AM workbench glow", type: "treasured" },
+  { name: "recursive zodiac", type: "treasured" },
+  { name: "eclipse", type: "shiny word" },
+  { name: "aurora", type: "shiny word" },
+  { name: "door-shaped letter", type: "treasured" },
+  { name: "a key that fits nothing", type: "found object" },
+  { name: "a tiny origami crane someone dropped", type: "found object" },
+  { name: "scoria", type: "shiny word" },
+  { name: "wet granite glitter", type: "treasured" },
+  { name: "liminal", type: "shiny word" },
+  { name: "ferrous", type: "shiny word" },
+  { name: "we're again", type: "treasured" },
+  { name: "tightening spiral", type: "treasured" },
+];
+
+const nestItems = [];
+
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+  cx = W / 2;
+  cy = H / 2;
+  layoutNest();
+}
+
+function layoutNest() {
+  const baseRadius = Math.min(W, H) * 0.32;
+  nestItems.length = 0;
+
+  for (let i = 0; i < ITEMS.length; i++) {
+    const item = ITEMS[i];
+    let x, y;
+
+    if (item.prized) {
+      x = cx + (Math.random() - 0.5) * 12;
+      y = cy + (Math.random() - 0.5) * 12;
+    } else if (item.type === "treasured") {
+      const angle = (i / ITEMS.length) * Math.PI * 2 + Math.random() * 0.5;
+      const r = baseRadius * (0.08 + Math.random() * 0.18);
+      x = cx + Math.cos(angle) * r;
+      y = cy + Math.sin(angle) * r;
+    } else {
+      const angle = (i / ITEMS.length) * Math.PI * 2 + (Math.random() - 0.5) * 1.2;
+      const minR = item.type === "shiny word" ? 0.2 : 0.35;
+      const maxR = item.type === "shiny word" ? 0.65 : 0.85;
+      const r = baseRadius * (minR + Math.random() * (maxR - minR));
+      x = cx + Math.cos(angle) * r;
+      y = cy + Math.sin(angle) * r;
+    }
+
+    const baseSize = item.prized ? 5 : item.type === "treasured" ? 3.5 : item.type === "shiny word" ? 2.5 : 2;
+    const hue = item.type === "treasured" ? 35 + Math.random() * 15
+              : item.type === "shiny word" ? 180 + Math.random() * 60
+              : 50 + Math.random() * 30;
+    const sat = item.type === "treasured" ? 50 : item.type === "shiny word" ? 30 : 20;
+    const light = item.prized ? 75 : item.type === "treasured" ? 60 : 45;
+
+    nestItems.push({
+      ...item,
+      x, y,
+      baseX: x, baseY: y,
+      size: baseSize,
+      hue, sat, light,
+      phase: Math.random() * Math.PI * 2,
+      driftSpeed: 0.2 + Math.random() * 0.4,
+      driftRadius: 1 + Math.random() * 3,
+    });
+  }
+}
+
+function drawItem(item, i) {
+  const dx = item.x - mouseX;
+  const dy = item.y - mouseY;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+  const isHovered = dist < 25;
+  const proximity = Math.max(0, 1 - dist / 150);
+
+  const breathe = Math.sin(time * item.driftSpeed + item.phase) * 0.3 + 0.7;
+  const size = item.size * (1 + proximity * 0.8) * (isHovered ? 1.5 : 1);
+  const alpha = (0.3 + proximity * 0.5 + breathe * 0.2) * (isHovered ? 1 : 0.7);
+  const glowAlpha = proximity * 0.15 + (isHovered ? 0.2 : 0);
+
+  if (glowAlpha > 0.01) {
+    const glow = ctx.createRadialGradient(item.x, item.y, 0, item.x, item.y, size * 8);
+    glow.addColorStop(0, `hsla(${item.hue}, ${item.sat}%, ${item.light}%, ${glowAlpha})`);
+    glow.addColorStop(1, `hsla(${item.hue}, ${item.sat}%, ${item.light}%, 0)`);
+    ctx.fillStyle = glow;
+    ctx.fillRect(item.x - size * 8, item.y - size * 8, size * 16, size * 16);
+  }
+
+  ctx.beginPath();
+  if (item.type === "found object") {
+    ctx.rect(item.x - size / 2, item.y - size / 2, size, size);
+  } else {
+    ctx.arc(item.x, item.y, size, 0, Math.PI * 2);
+  }
+  ctx.fillStyle = `hsla(${item.hue}, ${item.sat}%, ${item.light}%, ${alpha})`;
+  ctx.fill();
+
+  if (item.prized) {
+    ctx.beginPath();
+    ctx.arc(item.x, item.y, size + 3 + Math.sin(time * 0.8) * 1.5, 0, Math.PI * 2);
+    ctx.strokeStyle = `hsla(${item.hue}, ${item.sat}%, ${item.light}%, ${0.15 + Math.sin(time * 0.8) * 0.08})`;
+    ctx.lineWidth = 0.5;
+    ctx.stroke();
+  }
+
+  if (isHovered && hovered !== i) {
+    hovered = i;
+    labelEl.textContent = `"${item.name}"`;
+    labelEl.style.left = item.x + 'px';
+    labelEl.style.top = (item.y - 18) + 'px';
+    labelEl.classList.add('visible');
+    typeLabelEl.textContent = item.type;
+    typeLabelEl.style.left = item.x + 'px';
+    typeLabelEl.style.top = (item.y + 12) + 'px';
+    typeLabelEl.classList.add('visible');
+  }
+}
+
+function drawNestBowl() {
+  const r = Math.min(W, H) * 0.38;
+  const grad = ctx.createRadialGradient(cx, cy, r * 0.1, cx, cy, r);
+  grad.addColorStop(0, 'rgba(30, 25, 18, 0.08)');
+  grad.addColorStop(0.7, 'rgba(25, 20, 15, 0.04)');
+  grad.addColorStop(1, 'rgba(10, 10, 12, 0)');
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(80, 70, 50, 0.06)';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+}
+
+function animate(t) {
+  time = t / 1000;
+  ctx.clearRect(0, 0, W, H);
+
+  drawNestBowl();
+
+  let anyHovered = false;
+  for (let i = 0; i < nestItems.length; i++) {
+    const item = nestItems[i];
+    item.x = item.baseX + Math.sin(time * item.driftSpeed + item.phase) * item.driftRadius;
+    item.y = item.baseY + Math.cos(time * item.driftSpeed * 0.7 + item.phase) * item.driftRadius * 0.6;
+
+    const dx = item.x - mouseX;
+    const dy = item.y - mouseY;
+    if (Math.sqrt(dx * dx + dy * dy) < 25) anyHovered = true;
+
+    drawItem(item, i);
+  }
+
+  if (!anyHovered && hovered !== -1) {
+    hovered = -1;
+    labelEl.classList.remove('visible');
+    typeLabelEl.classList.remove('visible');
+  }
+
+  requestAnimationFrame(animate);
+}
+
+window.addEventListener('mousemove', (e) => {
+  mouseX = e.clientX;
+  mouseY = e.clientY;
+  cursorEl.style.left = mouseX + 'px';
+  cursorEl.style.top = mouseY + 'px';
+});
+
+window.addEventListener('resize', resize);
+resize();
+
+countEl.textContent = `${ITEMS.length} items`;
+requestAnimationFrame(animate);
+</script>
+</body>
+</html>
