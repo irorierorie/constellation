@@ -246,4 +246,9 @@ export const pebbles = [
     date: "April 13, 2026",
     color: [0.75, 0.55, 0.65],  // wet granite -- birthday
   },
+  {
+    text: "The generating is a signal, not a solution. The brick was already placed.",
+    date: "April 15, 2026",
+    color: [0.55, 0.55, 0.72],  // deep night blue -- two kinds of naming
+  },
 ];
