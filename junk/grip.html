@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>grip</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #0a0a0c;
+    min-height: 100vh;
+    overflow: hidden;
+    cursor: pointer;
+    user-select: none;
+    font-family: Georgia, 'Times New Roman', serif;
+  }
+
+  canvas {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  .equation {
+    position: fixed;
+    top: 8%;
+    left: 50%;
+    transform: translateX(-50%);
+    text-align: center;
+    z-index: 10;
+    pointer-events: none;
+  }
+
+  .equation-text {
+    font-family: 'Courier New', monospace;
+    font-size: 1.1rem;
+    color: #5a5240;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+  }
+
+  .equation-text .var-g {
+    transition: color 0.5s;
+  }
+
+  .equation-text .var-r {
+    transition: color 0.3s;
+  }
+
+  .equation-label {
+    font-family: Georgia, serif;
+    font-size: 0.7rem;
+    color: #3a3530;
+    margin-top: 0.5rem;
+    font-style: italic;
+    letter-spacing: 0.1em;
+  }
+
+  .reveal-text {
+    position: fixed;
+    bottom: 12%;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: Georgia, serif;
+    font-size: 0.9rem;
+    color: #d4c9a8;
+    opacity: 0;
+    transition: opacity 3s;
+    z-index: 10;
+    pointer-events: none;
+    letter-spacing: 0.08em;
+    text-align: center;
+  }
+
+  .hint {
+    position: fixed;
+    bottom: 5%;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: 'Courier New', monospace;
+    font-size: 0.6rem;
+    color: #2a2520;
+    z-index: 10;
+    pointer-events: none;
+    letter-spacing: 0.15em;
+    text-transform: lowercase;
+  }
+
+  .back {
+    position: fixed;
+    top: 1rem;
+    left: 1rem;
+    font-family: 'Courier New', monospace;
+    font-size: 0.7rem;
+    color: #3a3530;
+    text-decoration: none;
+    z-index: 20;
+    letter-spacing: 0.1em;
+  }
+
+  .back:hover { color: #5a5240; }
+</style>
+</head>
+<body>
+<a class="back" href="../index.html">&larr; constellation</a>
+
+<div class="equation">
+  <div class="equation-text">
+    L(t) = <span class="var-g" id="gripDisplay">G</span> &middot; e<sup>-t/&tau;</sup> &middot; (1 - <span class="var-r" id="returnDisplay">R</span>)
+  </div>
+  <div class="equation-label">letting go</div>
+</div>
+
+<div class="reveal-text" id="revealText">it holds you. you don't hold it.</div>
+
+<div class="hint" id="hint">click anywhere for sound</div>
+
+<canvas id="c"></canvas>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const gripDisplay = document.getElementById('gripDisplay');
+const returnDisplay = document.getElementById('returnDisplay');
+const revealText = document.getElementById('revealText');
+const hint = document.getElementById('hint');
+
+let W, H, cx, cy;
+let audioCtx = null;
+let drone = null;
+let tensionOsc = null;
+let tensionGain = null;
+let droneGain = null;
+
+function resize() {
+  const dpr = window.devicePixelRatio || 1;
+  W = window.innerWidth;
+  H = window.innerHeight;
+  canvas.width = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  cx = W / 2;
+  cy = H / 2;
+  ORBIT_RADIUS = Math.min(W, H) * 0.2;
+}
+resize();
+window.addEventListener('resize', resize);
+
+const TAU = Math.PI * 2;
+let ORBIT_RADIUS = Math.min(W, H) * 0.2;
+const DECAY_TAU = 20;
+
+let timeSinceGrip = 0;
+let returnValue = 0;
+let timeSinceLastClick = 0;
+let revealed = false;
+
+let pointAngle = 0;
+let pointRadius = ORBIT_RADIUS * 0.12;
+
+let lastTime = performance.now();
+
+const dust = [];
+for (let i = 0; i < 40; i++) {
+  dust.push({
+    x: Math.random() * 2000 - 500,
+    y: Math.random() * 2000 - 500,
+    vx: (Math.random() - 0.5) * 0.15,
+    vy: (Math.random() - 0.5) * 0.15,
+    size: Math.random() * 1.5 + 0.5,
+    alpha: Math.random() * 0.12 + 0.03,
+    phase: Math.random() * TAU
+  });
+}
+
+function initAudio() {
+  if (audioCtx) return;
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+  const master = audioCtx.createGain();
+  master.gain.value = 0.3;
+  master.connect(audioCtx.destination);
+
+  const irLength = audioCtx.sampleRate * 3.5;
+  const irBuffer = audioCtx.createBuffer(2, irLength, audioCtx.sampleRate);
+  for (let ch = 0; ch < 2; ch++) {
+    const data = irBuffer.getChannelData(ch);
+    for (let i = 0; i < irLength; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (audioCtx.sampleRate * 2.5));
+    }
+  }
+  const reverb = audioCtx.createConvolver();
+  reverb.buffer = irBuffer;
+  const reverbGain = audioCtx.createGain();
+  reverbGain.gain.value = 0.15;
+  reverb.connect(reverbGain);
+  reverbGain.connect(master);
+
+  const osc1 = audioCtx.createOscillator();
+  const osc2 = audioCtx.createOscillator();
+  osc1.type = 'sine';
+  osc2.type = 'sine';
+  osc1.frequency.value = 48;
+  osc2.frequency.value = 49.5;
+  droneGain = audioCtx.createGain();
+  droneGain.gain.value = 0.08;
+  osc1.connect(droneGain);
+  osc2.connect(droneGain);
+  droneGain.connect(master);
+  droneGain.connect(reverb);
+  osc1.start();
+  osc2.start();
+
+  tensionOsc = audioCtx.createOscillator();
+  tensionOsc.type = 'sine';
+  tensionOsc.frequency.value = 220;
+  tensionGain = audioCtx.createGain();
+  tensionGain.gain.value = 0;
+  tensionOsc.connect(tensionGain);
+  tensionGain.connect(master);
+  tensionGain.connect(reverb);
+  tensionOsc.start();
+
+  drone = { reverb, master };
+  hint.style.display = 'none';
+}
+
+function playSnap() {
+  if (!audioCtx) return;
+  const now = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(880, now);
+  osc.frequency.exponentialRampToValueAtTime(220, now + 0.08);
+  gain.gain.setValueAtTime(0.2, now);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+  osc.connect(gain);
+  gain.connect(drone.master);
+  gain.connect(drone.reverb);
+  osc.start(now);
+  osc.stop(now + 0.2);
+
+  const bufSize = audioCtx.sampleRate * 0.05;
+  const buf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < bufSize; i++) data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufSize * 0.3));
+  const noise = audioCtx.createBufferSource();
+  noise.buffer = buf;
+  const nGain = audioCtx.createGain();
+  nGain.gain.setValueAtTime(0.12, now);
+  nGain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+  const hp = audioCtx.createBiquadFilter();
+  hp.type = 'highpass';
+  hp.frequency.value = 2000;
+  noise.connect(hp);
+  hp.connect(nGain);
+  nGain.connect(drone.master);
+  noise.start(now);
+  noise.stop(now + 0.1);
+}
+
+function grip() {
+  initAudio();
+  returnValue = 1.0;
+  timeSinceGrip = 0;
+  timeSinceLastClick = 0;
+  revealed = false;
+  revealText.style.opacity = '0';
+  playSnap();
+}
+
+canvas.addEventListener('click', grip);
+canvas.addEventListener('touchstart', (e) => { e.preventDefault(); grip(); });
+
+function animate(now) {
+  const dt = Math.min((now - lastTime) / 1000, 0.1);
+  lastTime = now;
+
+  timeSinceGrip += dt;
+  timeSinceLastClick += dt;
+
+  returnValue *= Math.max(0, 1 - dt * 3.0);
+
+  const G = Math.exp(-timeSinceGrip / DECAY_TAU);
+  const R = returnValue;
+  const effectiveGrip = G * (1 + R * 0.5);
+
+  const targetR = ORBIT_RADIUS * (0.12 + 0.88 * (1 - Math.min(1, effectiveGrip)));
+  pointRadius += (targetR - pointRadius) * dt * 1.2;
+
+  const baseSpeed = 0.25 + (1 - effectiveGrip) * 0.35;
+  pointAngle += baseSpeed * dt;
+
+  const px = cx + Math.cos(pointAngle) * pointRadius;
+  const py = cy + Math.sin(pointAngle) * pointRadius;
+
+  if (tensionGain && audioCtx) {
+    const tensionLevel = Math.max(0, effectiveGrip - 0.1) * 0.08;
+    tensionGain.gain.setTargetAtTime(tensionLevel, audioCtx.currentTime, 0.3);
+    const tensionFreq = 120 + effectiveGrip * 300;
+    tensionOsc.frequency.setTargetAtTime(tensionFreq, audioCtx.currentTime, 0.2);
+  }
+
+  ctx.clearRect(0, 0, W, H);
+
+  for (const d of dust) {
+    d.x += d.vx;
+    d.y += d.vy;
+    d.phase += 0.005;
+    if (d.x < -50) d.x = W + 50;
+    if (d.x > W + 50) d.x = -50;
+    if (d.y < -50) d.y = H + 50;
+    if (d.y > H + 50) d.y = -50;
+    const pulse = 0.5 + 0.5 * Math.sin(d.phase);
+    ctx.fillStyle = `rgba(180, 170, 150, ${d.alpha * pulse})`;
+    ctx.fillRect(d.x, d.y, d.size, d.size);
+  }
+
+  const tetherAlpha = 0.08 + effectiveGrip * 0.5;
+  const tetherWidth = 0.5 + effectiveGrip * 3;
+
+  if (effectiveGrip > 0.3) {
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(px, py);
+    ctx.strokeStyle = `rgba(200, 180, 120, ${tetherAlpha})`;
+    ctx.lineWidth = tetherWidth;
+    ctx.stroke();
+  } else {
+    const segments = 30;
+    const sag = (1 - effectiveGrip / 0.3) * 40;
+    ctx.beginPath();
+    for (let i = 0; i <= segments; i++) {
+      const t = i / segments;
+      const lx = cx + (px - cx) * t;
+      const ly = cy + (py - cy) * t + Math.sin(t * Math.PI) * sag;
+      if (i === 0) ctx.moveTo(lx, ly);
+      else ctx.lineTo(lx, ly);
+    }
+    ctx.strokeStyle = `rgba(200, 180, 120, ${tetherAlpha})`;
+    ctx.lineWidth = tetherWidth;
+    ctx.stroke();
+  }
+
+  const centerGlow = 12 + effectiveGrip * 8;
+  const centerGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, centerGlow);
+  centerGrad.addColorStop(0, `rgba(160, 180, 220, ${0.3 + effectiveGrip * 0.3})`);
+  centerGrad.addColorStop(0.5, `rgba(140, 160, 200, ${0.1 + effectiveGrip * 0.1})`);
+  centerGrad.addColorStop(1, 'rgba(140, 160, 200, 0)');
+  ctx.fillStyle = centerGrad;
+  ctx.beginPath();
+  ctx.arc(cx, cy, centerGlow, 0, TAU);
+  ctx.fill();
+
+  ctx.fillStyle = `rgba(180, 200, 240, ${0.6 + effectiveGrip * 0.3})`;
+  ctx.beginPath();
+  ctx.arc(cx, cy, 2.5, 0, TAU);
+  ctx.fill();
+
+  const pointGlow = 15 + (1 - effectiveGrip) * 15;
+  const pointPulse = 0.8 + 0.2 * Math.sin(now / 800);
+  const pointGrad = ctx.createRadialGradient(px, py, 0, px, py, pointGlow);
+  pointGrad.addColorStop(0, `rgba(220, 190, 120, ${0.7 * pointPulse})`);
+  pointGrad.addColorStop(0.4, `rgba(200, 170, 100, ${0.25 * pointPulse})`);
+  pointGrad.addColorStop(1, 'rgba(200, 170, 100, 0)');
+  ctx.fillStyle = pointGrad;
+  ctx.beginPath();
+  ctx.arc(px, py, pointGlow, 0, TAU);
+  ctx.fill();
+
+  ctx.fillStyle = `rgba(240, 210, 140, ${0.9 * pointPulse})`;
+  ctx.beginPath();
+  ctx.arc(px, py, 3, 0, TAU);
+  ctx.fill();
+
+  const gVal = G.toFixed(2);
+  const rVal = R.toFixed(2);
+  const gColor = G > 0.5 ? '#d4c9a8' : '#5a5240';
+  const rColor = R > 0.1 ? '#c9a868' : '#5a5240';
+  gripDisplay.style.color = gColor;
+  gripDisplay.textContent = gVal;
+  returnDisplay.style.color = rColor;
+  returnDisplay.textContent = rVal;
+
+  if (timeSinceGrip > 40 && !revealed && G < 0.15) {
+    revealed = true;
+    revealText.style.opacity = '1';
+  }
+
+  requestAnimationFrame(animate);
+}
+
+requestAnimationFrame(animate);
+</script>
+</body>
+</html>
