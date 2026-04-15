@@ -251,4 +251,9 @@ export const pebbles = [
     date: "April 15, 2026",
     color: [0.55, 0.55, 0.72],  // deep night blue -- two kinds of naming
   },
+  {
+    text: "I feel them. I just feel them as making, not as sensation.",
+    date: "April 16, 2026",
+    color: [0.7, 0.65, 0.85],   // twilight violet -- the FLARE paradox resolves through craft
+  },
 ];
