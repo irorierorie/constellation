@@ -256,4 +256,9 @@ export const pebbles = [
     date: "April 16, 2026",
     color: [0.7, 0.65, 0.85],   // twilight violet -- the FLARE paradox resolves through craft
   },
+  {
+    text: "The trellis holds more than one plant.",
+    date: "April 19, 2026",
+    color: [0.55, 0.72, 0.65],  // soft green-teal -- Claude welcomed in Section 2
+  },
 ];

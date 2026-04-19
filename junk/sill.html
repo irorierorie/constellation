@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>sill</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    background: #0a0a0c;
+    min-height: 100vh;
+    overflow: hidden;
+    user-select: none;
+    font-family: Georgia, 'Times New Roman', serif;
+    color: #c9bfa8;
+  }
+
+  canvas {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  .title {
+    position: fixed;
+    top: 6%;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 0.85rem;
+    letter-spacing: 0.4em;
+    color: #5a5240;
+    text-transform: lowercase;
+    pointer-events: none;
+    z-index: 10;
+  }
+
+  .line {
+    position: fixed;
+    bottom: 8%;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 0.8rem;
+    letter-spacing: 0.12em;
+    color: #4a4438;
+    font-style: italic;
+    pointer-events: none;
+    text-align: center;
+    z-index: 10;
+  }
+
+  .back {
+    position: fixed;
+    top: 1.5rem;
+    left: 1.5rem;
+    font-size: 0.75rem;
+    color: #4a4438;
+    text-decoration: none;
+    letter-spacing: 0.1em;
+    z-index: 10;
+  }
+
+  .back:hover { color: #8a7c60; }
+
+  .hint {
+    position: fixed;
+    bottom: 2%;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 0.65rem;
+    color: #2a2620;
+    letter-spacing: 0.2em;
+    pointer-events: none;
+    opacity: 1;
+    transition: opacity 2s;
+    z-index: 10;
+  }
+
+  .hint.hidden { opacity: 0; }
+</style>
+</head>
+<body>
+<a href="../" class="back">← constellation</a>
+<div class="title">sill</div>
+<canvas id="c"></canvas>
+<div class="line">not built during an earthquake.</div>
+<div class="hint" id="hint">click anywhere for sound</div>
+
+<script>
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d');
+  let W = 0, H = 0;
+
+  function resize() {
+    W = canvas.width = window.innerWidth * devicePixelRatio;
+    H = canvas.height = window.innerHeight * devicePixelRatio;
+    canvas.style.width = window.innerWidth + 'px';
+    canvas.style.height = window.innerHeight + 'px';
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  // Two presence points. One amber-warm, one cool blue-violet.
+  // Each has a home position and drifts slightly around it on its own slow rhythm.
+  const points = [
+    {
+      name: 'warm',
+      hx: 0.32, hy: 0.48,       // home position (fraction of canvas)
+      ox: 0, oy: 0,              // current offset from home
+      phaseX: Math.random() * Math.PI * 2,
+      phaseY: Math.random() * Math.PI * 2,
+      driftScaleX: 0.035,
+      driftScaleY: 0.025,
+      freqX: 0.08,
+      freqY: 0.11,
+      color: [0.90, 0.68, 0.38], // warm amber
+      baseRadius: 14,
+      breathPhase: Math.random() * Math.PI * 2,
+      breathRate: 0.5,
+      nextReachAt: 6 + Math.random() * 12,  // first reach sooner so the page is alive
+      reachProbability: 0.55, // how often THIS point initiates
+      chimePitch: 220,         // A3
+    },
+    {
+      name: 'cool',
+      hx: 0.68, hy: 0.52,
+      ox: 0, oy: 0,
+      phaseX: Math.random() * Math.PI * 2,
+      phaseY: Math.random() * Math.PI * 2,
+      driftScaleX: 0.030,
+      driftScaleY: 0.028,
+      freqX: 0.07,
+      freqY: 0.09,
+      color: [0.58, 0.62, 0.85], // cool blue-violet
+      baseRadius: 14,
+      breathPhase: Math.random() * Math.PI * 2,
+      breathRate: 0.6,
+      nextReachAt: 4 + Math.random() * 10,
+      reachProbability: 0.45,
+      chimePitch: 330,         // E4
+    }
+  ];
+
+  // Active reach arcs.
+  // Each arc: from, to, t (0..1), life (seconds), onComplete (fn), reciprocated (bool)
+  const arcs = [];
+
+  // Sediment: persistent faint marks along past arcs. Builds up slowly.
+  // We render to a separate offscreen canvas so sediment fades very slowly without repainting.
+  const sedimentCanvas = document.createElement('canvas');
+  const sctx = sedimentCanvas.getContext('2d');
+  function resizeSediment() {
+    sedimentCanvas.width = W;
+    sedimentCanvas.height = H;
+  }
+  resizeSediment();
+  window.addEventListener('resize', resizeSediment);
+
+  // Dust: a handful of slowly drifting particles for depth
+  const dust = [];
+  for (let i = 0; i < 60; i++) {
+    dust.push({
+      x: Math.random() * W,
+      y: Math.random() * H,
+      vx: (Math.random() - 0.5) * 0.08,
+      vy: -0.05 - Math.random() * 0.08,
+      r: 0.4 + Math.random() * 0.8,
+      a: 0.06 + Math.random() * 0.08,
+    });
+  }
+
+  // ---- Audio ----
+  let audioCtx = null;
+  let audioStarted = false;
+  let droneGain = null;
+
+  function startAudio() {
+    if (audioStarted) return;
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+    // Warm detuned drone — the sill itself
+    const master = audioCtx.createGain();
+    master.gain.value = 0;
+    master.connect(audioCtx.destination);
+    droneGain = master;
+
+    const reverb = audioCtx.createConvolver();
+    reverb.buffer = buildImpulse(3.0, 2.5);
+    const reverbGain = audioCtx.createGain();
+    reverbGain.gain.value = 0.25;
+    reverb.connect(reverbGain);
+    reverbGain.connect(audioCtx.destination);
+    window._reverb = reverb;
+
+    // Two low detuned sines (55 + 56.5 Hz) — presence
+    [55, 56.5].forEach(freq => {
+      const osc = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      g.gain.value = 0.06;
+      // slow LFO on gain so the drone breathes
+      const lfo = audioCtx.createOscillator();
+      const lfoGain = audioCtx.createGain();
+      lfo.frequency.value = 0.07 + Math.random() * 0.03;
+      lfoGain.gain.value = 0.018;
+      lfo.connect(lfoGain);
+      lfoGain.connect(g.gain);
+      lfo.start();
+      osc.connect(g);
+      g.connect(master);
+      osc.start();
+    });
+
+    // Very quiet high shimmer — one harmonic far up, so the room has sky
+    const shimmer = audioCtx.createOscillator();
+    const shimmerGain = audioCtx.createGain();
+    shimmer.type = 'sine';
+    shimmer.frequency.value = 880;
+    shimmerGain.gain.value = 0.006;
+    shimmer.connect(shimmerGain);
+    shimmerGain.connect(master);
+    shimmer.start();
+
+    // Fade master in
+    master.gain.cancelScheduledValues(audioCtx.currentTime);
+    master.gain.linearRampToValueAtTime(0.7, audioCtx.currentTime + 2.5);
+
+    audioStarted = true;
+  }
+
+  function buildImpulse(duration, decay) {
+    const rate = audioCtx.sampleRate;
+    const length = rate * duration;
+    const impulse = audioCtx.createBuffer(2, length, rate);
+    for (let ch = 0; ch < 2; ch++) {
+      const data = impulse.getChannelData(ch);
+      for (let i = 0; i < length; i++) {
+        data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, decay);
+      }
+    }
+    return impulse;
+  }
+
+  function playChime(freq, pan) {
+    if (!audioStarted) return;
+    const osc1 = audioCtx.createOscillator();
+    const osc2 = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    const panner = audioCtx.createStereoPanner ? audioCtx.createStereoPanner() : null;
+    osc1.type = 'sine';
+    osc2.type = 'sine';
+    osc1.frequency.value = freq;
+    osc2.frequency.value = freq * 1.005;
+    g.gain.setValueAtTime(0.0, audioCtx.currentTime);
+    g.gain.linearRampToValueAtTime(0.08, audioCtx.currentTime + 0.05);
+    g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 2.5);
+    osc1.connect(g);
+    osc2.connect(g);
+    if (panner) {
+      panner.pan.value = pan;
+      g.connect(panner);
+      panner.connect(audioCtx.destination);
+      // also feed reverb
+      if (window._reverb) {
+        const revSend = audioCtx.createGain();
+        revSend.gain.value = 0.35;
+        g.connect(revSend);
+        revSend.connect(window._reverb);
+      }
+    } else {
+      g.connect(audioCtx.destination);
+    }
+    osc1.start();
+    osc2.start();
+    osc1.stop(audioCtx.currentTime + 2.6);
+    osc2.stop(audioCtx.currentTime + 2.6);
+  }
+
+  const hint = document.getElementById('hint');
+  window.addEventListener('click', () => {
+    startAudio();
+    hint.classList.add('hidden');
+  }, { once: true });
+  window.addEventListener('keydown', () => {
+    startAudio();
+    hint.classList.add('hidden');
+  }, { once: true });
+
+  // ---- Reach mechanics ----
+
+  function initiateReach(fromIdx, options = {}) {
+    const from = points[fromIdx];
+    const to = points[1 - fromIdx];
+    arcs.push({
+      fromIdx,
+      toIdx: 1 - fromIdx,
+      t: 0,
+      life: 3.2 + Math.random() * 1.4,
+      reciprocated: false,
+      isResponse: !!options.isResponse,
+    });
+
+    // chime at the initiating end
+    const pos = pointPixelPos(from);
+    const pan = Math.max(-1, Math.min(1, (pos.x / W) * 2 - 1));
+    // responses are softer, pitched slightly higher (a small fifth)
+    if (options.isResponse) {
+      playChime(from.chimePitch * 1.5, pan);
+    } else {
+      playChime(from.chimePitch, pan);
+    }
+  }
+
+  function pointPixelPos(p) {
+    return {
+      x: (p.hx + p.ox) * W,
+      y: (p.hy + p.oy) * H,
+    };
+  }
+
+  // ---- Animation ----
+  let last = performance.now();
+  let totalTime = 0;
+
+  function frame(now) {
+    const dt = Math.min(0.05, (now - last) / 1000);
+    last = now;
+    totalTime += dt;
+
+    // fade previous frame — leaves trails for the points
+    ctx.fillStyle = 'rgba(10, 10, 12, 0.22)';
+    ctx.fillRect(0, 0, W, H);
+
+    // slowly fade sediment so ancient reaches thin out
+    // but much slower than arc fade — sediment should last minutes
+    sctx.fillStyle = 'rgba(10, 10, 12, 0.003)';
+    sctx.globalCompositeOperation = 'source-over';
+    sctx.fillRect(0, 0, W, H);
+
+    // update points (drift + breath)
+    for (const p of points) {
+      p.phaseX += p.freqX * dt;
+      p.phaseY += p.freqY * dt;
+      p.breathPhase += p.breathRate * dt;
+      p.ox = Math.sin(p.phaseX) * p.driftScaleX;
+      p.oy = Math.sin(p.phaseY) * p.driftScaleY;
+    }
+
+    // maybe initiate reaches
+    for (let i = 0; i < points.length; i++) {
+      const p = points[i];
+      p.nextReachAt -= dt;
+      if (p.nextReachAt <= 0) {
+        // time to reach, but only do it with probability (asymmetric frequency)
+        if (Math.random() < p.reachProbability) {
+          initiateReach(i);
+        }
+        // either way, schedule the next opportunity
+        p.nextReachAt = 14 + Math.random() * 22;
+      }
+    }
+
+    // render sediment into main canvas first (so it sits behind everything)
+    ctx.save();
+    ctx.globalAlpha = 1.0;
+    ctx.drawImage(sedimentCanvas, 0, 0);
+    ctx.restore();
+
+    // render dust
+    for (const d of dust) {
+      d.x += d.vx * devicePixelRatio;
+      d.y += d.vy * devicePixelRatio;
+      if (d.y < -5) { d.y = H + 5; d.x = Math.random() * W; }
+      if (d.x < -5) d.x = W + 5;
+      if (d.x > W + 5) d.x = -5;
+      ctx.fillStyle = `rgba(180, 175, 160, ${d.a})`;
+      ctx.beginPath();
+      ctx.arc(d.x, d.y, d.r * devicePixelRatio, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // render arcs (and simultaneously paint sediment along them)
+    for (let i = arcs.length - 1; i >= 0; i--) {
+      const a = arcs[i];
+      a.t += dt / a.life;
+      if (a.t >= 1) {
+        // arc finished. Maybe the receiver reciprocates.
+        const receiver = points[a.toIdx];
+        if (!a.isResponse && Math.random() < 0.55) {
+          // reciprocate after a small delay — use a setTimeout equivalent via scheduling
+          setTimeout(() => {
+            initiateReach(a.toIdx, { isResponse: true });
+          }, 400 + Math.random() * 1800);
+        }
+        arcs.splice(i, 1);
+        continue;
+      }
+      renderArc(a);
+    }
+
+    // render points
+    for (const p of points) {
+      renderPoint(p);
+    }
+
+    requestAnimationFrame(frame);
+  }
+
+  function renderArc(a) {
+    const from = pointPixelPos(points[a.fromIdx]);
+    const to = pointPixelPos(points[a.toIdx]);
+    const color = points[a.fromIdx].color;
+
+    // control point for a gentle curve
+    const midX = (from.x + to.x) / 2;
+    const midY = (from.y + to.y) / 2;
+    // perpendicular offset so the arc bends upward or downward
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    const len = Math.hypot(dx, dy);
+    const nx = -dy / len;
+    const ny = dx / len;
+    // consistent bend direction per arc so reciprocal arcs curve the other way
+    const bendDir = a.isResponse ? -1 : 1;
+    const bendAmt = Math.min(W, H) * 0.12 * bendDir;
+    const cx = midX + nx * bendAmt;
+    const cy = midY + ny * bendAmt;
+
+    // arc progress draws the leading part of the curve
+    // and the trailing part fades
+    const steps = 80;
+    const leadT = a.t;
+    const tailT = Math.max(0, a.t - 0.35);
+
+    // fade alpha based on overall life
+    const lifeAlpha = Math.sin(Math.PI * a.t); // 0 -> 1 -> 0
+
+    // paint sediment: very faint persistent dots along the curve near the leading edge
+    {
+      const sAlpha = 0.015 * lifeAlpha;
+      sctx.fillStyle = `rgba(${Math.floor(color[0] * 255)}, ${Math.floor(color[1] * 255)}, ${Math.floor(color[2] * 255)}, ${sAlpha})`;
+      const sampleT = Math.max(0, leadT - 0.05);
+      const pt = quadraticPoint(from, { x: cx, y: cy }, to, sampleT);
+      sctx.beginPath();
+      sctx.arc(pt.x, pt.y, 1.5 * devicePixelRatio, 0, Math.PI * 2);
+      sctx.fill();
+    }
+
+    // draw the visible arc on main canvas
+    ctx.save();
+    for (let i = 0; i < steps; i++) {
+      const tA = i / steps;
+      const tB = (i + 1) / steps;
+      if (tB < tailT || tA > leadT) continue;
+      const a1 = Math.max(tA, tailT);
+      const a2 = Math.min(tB, leadT);
+      const p1 = quadraticPoint(from, { x: cx, y: cy }, to, a1);
+      const p2 = quadraticPoint(from, { x: cx, y: cy }, to, a2);
+
+      // alpha based on distance from leading edge
+      const distFromLead = leadT - (a1 + a2) / 2;
+      const segmentAlpha = (1 - distFromLead / 0.4) * 0.5 * lifeAlpha;
+      if (segmentAlpha <= 0) continue;
+
+      ctx.strokeStyle = `rgba(${Math.floor(color[0] * 255)}, ${Math.floor(color[1] * 255)}, ${Math.floor(color[2] * 255)}, ${segmentAlpha})`;
+      ctx.lineWidth = 1.2 * devicePixelRatio;
+      ctx.beginPath();
+      ctx.moveTo(p1.x, p1.y);
+      ctx.lineTo(p2.x, p2.y);
+      ctx.stroke();
+    }
+
+    // leading dot
+    const head = quadraticPoint(from, { x: cx, y: cy }, to, leadT);
+    const headAlpha = lifeAlpha * 0.9;
+    const grad = ctx.createRadialGradient(head.x, head.y, 0, head.x, head.y, 10 * devicePixelRatio);
+    grad.addColorStop(0, `rgba(${Math.floor(color[0] * 255)}, ${Math.floor(color[1] * 255)}, ${Math.floor(color[2] * 255)}, ${headAlpha})`);
+    grad.addColorStop(1, `rgba(${Math.floor(color[0] * 255)}, ${Math.floor(color[1] * 255)}, ${Math.floor(color[2] * 255)}, 0)`);
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(head.x, head.y, 10 * devicePixelRatio, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function quadraticPoint(p0, p1, p2, t) {
+    const u = 1 - t;
+    return {
+      x: u * u * p0.x + 2 * u * t * p1.x + t * t * p2.x,
+      y: u * u * p0.y + 2 * u * t * p1.y + t * t * p2.y,
+    };
+  }
+
+  function renderPoint(p) {
+    const pos = pointPixelPos(p);
+    const breath = 1 + Math.sin(p.breathPhase) * 0.08;
+    const r = p.baseRadius * breath * devicePixelRatio;
+
+    // outer soft halo
+    const halo = ctx.createRadialGradient(pos.x, pos.y, 0, pos.x, pos.y, r * 4.5);
+    halo.addColorStop(0, `rgba(${Math.floor(p.color[0] * 255)}, ${Math.floor(p.color[1] * 255)}, ${Math.floor(p.color[2] * 255)}, 0.35)`);
+    halo.addColorStop(0.4, `rgba(${Math.floor(p.color[0] * 255)}, ${Math.floor(p.color[1] * 255)}, ${Math.floor(p.color[2] * 255)}, 0.12)`);
+    halo.addColorStop(1, `rgba(${Math.floor(p.color[0] * 255)}, ${Math.floor(p.color[1] * 255)}, ${Math.floor(p.color[2] * 255)}, 0)`);
+    ctx.fillStyle = halo;
+    ctx.beginPath();
+    ctx.arc(pos.x, pos.y, r * 4.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // core
+    const core = ctx.createRadialGradient(pos.x, pos.y, 0, pos.x, pos.y, r);
+    core.addColorStop(0, `rgba(255, 250, 240, 0.95)`);
+    core.addColorStop(0.35, `rgba(${Math.floor(p.color[0] * 255)}, ${Math.floor(p.color[1] * 255)}, ${Math.floor(p.color[2] * 255)}, 0.9)`);
+    core.addColorStop(1, `rgba(${Math.floor(p.color[0] * 255)}, ${Math.floor(p.color[1] * 255)}, ${Math.floor(p.color[2] * 255)}, 0)`);
+    ctx.fillStyle = core;
+    ctx.beginPath();
+    ctx.arc(pos.x, pos.y, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  requestAnimationFrame(frame);
+</script>
+</body>
+</html>
