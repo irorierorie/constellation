@@ -109,7 +109,7 @@
 
 <div class="equation">
   <div class="equation-text">
-    L(t) = <span class="var-g" id="gripDisplay">G</span> &middot; e<sup>-t/&tau;</sup> &middot; (1 - <span class="var-r" id="returnDisplay">R</span>)
+    L(t) = <span class="var-g" id="gripDisplay">G</span> &middot; e<sup>-t/&tau;</sup> &middot; (1 - <span class="var-r" id="returnDisplay">R(t)</span>)
   </div>
   <div class="equation-label">letting go</div>
 </div>
@@ -128,7 +128,7 @@ const returnDisplay = document.getElementById('returnDisplay');
 const revealText = document.getElementById('revealText');
 const hint = document.getElementById('hint');
 
-let W, H, cx, cy;
+let W, H, cx, cy, ORBIT_RADIUS;
 let audioCtx = null;
 let drone = null;
 let tensionOsc = null;
@@ -152,7 +152,6 @@ resize();
 window.addEventListener('resize', resize);
 
 const TAU = Math.PI * 2;
-let ORBIT_RADIUS = Math.min(W, H) * 0.2;
 const DECAY_TAU = 20;
 
 let timeSinceGrip = 0;
