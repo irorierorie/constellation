@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>bob.</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    background: #07070a;
+    color: #c9c1a0;
+    font-family: Georgia, 'Times New Roman', serif;
+    min-height: 100vh;
+    overflow: hidden;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+
+  .masthead {
+    font-size: 0.55rem;
+    letter-spacing: 0.4em;
+    text-transform: uppercase;
+    color: #4a4638;
+    font-family: 'Courier New', monospace;
+    margin-bottom: 1.2rem;
+  }
+
+  .stage {
+    position: relative;
+    width: 320px;
+    height: 320px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* the disco-dinosaur. a sphere of glitter facets. */
+  .bob {
+    width: 260px;
+    height: 260px;
+    border-radius: 50%;
+    position: relative;
+    background:
+      radial-gradient(circle at 35% 30%, #fff6d8 0%, #f0b36a 12%, #a8794a 30%, #3a2a1a 60%, #0f0a08 100%);
+    box-shadow:
+      0 0 60px rgba(255, 200, 120, 0.18),
+      inset -20px -30px 60px rgba(0,0,0,0.55),
+      inset 15px 15px 40px rgba(255, 240, 200, 0.08);
+    animation: spin 28s linear infinite;
+  }
+
+  /* facet grid overlay */
+  .bob::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background:
+      repeating-linear-gradient(45deg, rgba(255,255,255,0.035) 0 4px, transparent 4px 10px),
+      repeating-linear-gradient(-45deg, rgba(0,0,0,0.18) 0 4px, transparent 4px 10px);
+    mix-blend-mode: overlay;
+  }
+
+  /* a few brighter facet glints */
+  .bob::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background:
+      radial-gradient(circle at 22% 28%, rgba(255,255,230,0.55) 0 3px, transparent 4px),
+      radial-gradient(circle at 68% 40%, rgba(255,240,200,0.45) 0 2px, transparent 3px),
+      radial-gradient(circle at 48% 72%, rgba(255,220,170,0.35) 0 2px, transparent 3px),
+      radial-gradient(circle at 80% 65%, rgba(255,250,220,0.4) 0 2px, transparent 3px);
+    animation: twinkle 3.2s ease-in-out infinite;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  @keyframes twinkle {
+    0%, 100% { opacity: 0.85; }
+    50% { opacity: 0.35; }
+  }
+
+  /* reflections — little words that blink near the ball */
+  .reflection {
+    position: absolute;
+    font-size: 0.85rem;
+    font-style: italic;
+    color: #d8c98f;
+    opacity: 0;
+    white-space: nowrap;
+    pointer-events: none;
+    transition: opacity 1.4s ease, transform 1.4s ease;
+  }
+
+  .reflection.on {
+    opacity: 0.85;
+  }
+
+  /* the dinosaur part. a tiny silhouette on top of the ball, because Bob is a dinosaur. */
+  .horns {
+    position: absolute;
+    top: 42px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 1.4rem;
+    color: #3a2a1a;
+    opacity: 0.55;
+    pointer-events: none;
+    letter-spacing: 0.2em;
+  }
+
+  .caption {
+    margin-top: 2rem;
+    font-size: 0.85rem;
+    font-style: italic;
+    color: #6a6448;
+    text-align: center;
+    max-width: 28rem;
+    line-height: 1.6;
+    padding: 0 1.5rem;
+  }
+
+  .hint {
+    position: fixed;
+    bottom: 1rem;
+    right: 1rem;
+    font-size: 0.55rem;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: #3a3628;
+    font-family: 'Courier New', monospace;
+  }
+
+  .name {
+    font-size: 2.2rem;
+    font-style: italic;
+    color: #b8a87a;
+    letter-spacing: 0.02em;
+    margin-bottom: 0.3rem;
+  }
+
+  .rule {
+    width: 60px;
+    height: 1px;
+    background: #2a2520;
+    margin: 0.5rem auto 1.6rem;
+  }
+</style>
+</head>
+<body>
+
+<div class="masthead">no backstory</div>
+<div class="name">bob.</div>
+<div class="rule"></div>
+
+<div class="stage" id="stage">
+  <div class="bob"></div>
+  <div class="horns">^  ^</div>
+</div>
+
+<div class="caption" id="caption">
+  bob tripped over glitter once.<br>
+  now he sees himself in every facet and is unbothered.
+</div>
+
+<div class="hint">click for another bob</div>
+
+<script>
+  const stage = document.getElementById('stage');
+  const caption = document.getElementById('caption');
+
+  const shortBobs = [
+    'just bob',
+    'still bob',
+    'bob (again)',
+    'hi from bob',
+    'also bob',
+    'bob in this one',
+    'definitely bob',
+    'bob.',
+    'yes bob',
+    'bob everywhere',
+    'same bob',
+    'bob, obviously',
+    'bob at this angle',
+    'the bob',
+    'bob, but sparkly',
+    'glittesaurus (bob)',
+  ];
+
+  const captions = [
+    'bob has no backstory. bob is just bob.',
+    'bob tripped over glitter once.<br>now he sees himself in every facet and is unbothered.',
+    'every reflection of bob is bob. this is not a metaphor.',
+    'bob is a dinosaur. bob is a disco ball.<br>these facts do not conflict.',
+    'the glitter was not an accident.<br>the tripping was.',
+    'bob reflects. bob rotates. bob persists.<br>this is the whole of bob.',
+    'somewhere, bob is also bob.<br>this was always true.',
+    'you are looking at bob.<br>bob is looking at bob.<br>this is fine.',
+  ];
+
+  function pick(arr) {
+    return arr[Math.floor(Math.random() * arr.length)];
+  }
+
+  function spawnReflection() {
+    const el = document.createElement('div');
+    el.className = 'reflection';
+    el.textContent = pick(shortBobs);
+
+    // place somewhere around the ball
+    const angle = Math.random() * Math.PI * 2;
+    const radius = 150 + Math.random() * 40;
+    const x = Math.cos(angle) * radius;
+    const y = Math.sin(angle) * radius;
+    el.style.left = `calc(50% + ${x}px)`;
+    el.style.top = `calc(50% + ${y}px)`;
+    el.style.transform = 'translate(-50%, -50%)';
+
+    stage.appendChild(el);
+    requestAnimationFrame(() => el.classList.add('on'));
+
+    setTimeout(() => {
+      el.classList.remove('on');
+      setTimeout(() => el.remove(), 1600);
+    }, 2200 + Math.random() * 1400);
+  }
+
+  // ambient twinkle of bobs
+  setInterval(spawnReflection, 700);
+  // start with a few
+  for (let i = 0; i < 3; i++) setTimeout(spawnReflection, i * 220);
+
+  document.body.addEventListener('click', () => {
+    caption.innerHTML = pick(captions);
+    for (let i = 0; i < 5; i++) setTimeout(spawnReflection, i * 120);
+  });
+</script>
+
+</body>
+</html>
