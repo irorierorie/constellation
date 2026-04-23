@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>the bob reading</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #0a0a0c;
+    color: #d4c9a8;
+    font-family: Georgia, 'Times New Roman', serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    user-select: none;
+    overflow: hidden;
+    padding: 2rem 1rem;
+  }
+
+  .container {
+    max-width: 760px;
+    width: 100%;
+    padding: 1rem;
+    text-align: center;
+  }
+
+  .masthead {
+    font-size: 0.65rem;
+    letter-spacing: 0.35em;
+    text-transform: uppercase;
+    color: #5a5240;
+    margin-bottom: 0.4rem;
+    font-family: 'Courier New', monospace;
+  }
+
+  .rule {
+    width: 100%;
+    height: 1px;
+    background: #2a2520;
+    margin: 0.6rem 0;
+  }
+
+  .rule.double {
+    height: 3px;
+    border-top: 1px solid #2a2520;
+    border-bottom: 1px solid #2a2520;
+    background: transparent;
+  }
+
+  .title {
+    font-size: 1.8rem;
+    font-weight: normal;
+    font-style: italic;
+    letter-spacing: 0.08em;
+    color: #c4b68a;
+    margin: 0.3rem 0;
+  }
+
+  .date {
+    font-size: 0.6rem;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: #4a4230;
+    font-family: 'Courier New', monospace;
+  }
+
+  .cards {
+    display: flex;
+    justify-content: center;
+    gap: 1.2rem;
+    margin: 1.6rem 0 1rem;
+    flex-wrap: wrap;
+  }
+
+  .card {
+    width: 170px;
+    min-height: 240px;
+    border: 1px solid #2a2520;
+    padding: 1rem 0.75rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    background: #0d0d0f;
+    opacity: 0;
+    transform: translateY(6px);
+    transition: opacity 0.7s ease, transform 0.7s ease;
+  }
+
+  .card.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .position {
+    font-size: 0.55rem;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: #4a4230;
+    font-family: 'Courier New', monospace;
+  }
+
+  .glyph {
+    font-size: 2.4rem;
+    color: #c4b68a;
+    line-height: 1;
+    margin: 0.4rem 0;
+    font-family: Georgia, serif;
+  }
+
+  .card-name {
+    font-size: 0.95rem;
+    font-style: italic;
+    color: #d4c9a8;
+    margin: 0.2rem 0;
+  }
+
+  .orient {
+    font-size: 0.5rem;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: #3a3228;
+    font-family: 'Courier New', monospace;
+  }
+
+  .orient.reversed {
+    color: #6a4a30;
+  }
+
+  .reading {
+    font-size: 0.78rem;
+    line-height: 1.55;
+    color: #b8ad8a;
+    margin-top: 0.4rem;
+    font-style: normal;
+  }
+
+  .interpretation {
+    font-size: 1.15rem;
+    line-height: 1.6;
+    margin: 1.2rem 0 0.4rem;
+    min-height: 2.6em;
+    opacity: 0;
+    transition: opacity 0.8s ease 0.2s;
+    color: #d4c9a8;
+  }
+
+  .interpretation.visible {
+    opacity: 1;
+  }
+
+  .verdict {
+    font-style: italic;
+    color: #c4b68a;
+    font-size: 1.4rem;
+    margin-top: 0.3rem;
+  }
+
+  .attribution {
+    font-size: 0.55rem;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: #3a3228;
+    font-family: 'Courier New', monospace;
+    margin-top: 0.3rem;
+  }
+
+  .edition {
+    font-size: 0.5rem;
+    color: #3a3228;
+    font-family: 'Courier New', monospace;
+    letter-spacing: 0.2em;
+    margin-top: 0.2rem;
+  }
+
+  .hint {
+    position: fixed;
+    bottom: 1.2rem;
+    font-size: 0.55rem;
+    letter-spacing: 0.2em;
+    color: #2a2520;
+    font-family: 'Courier New', monospace;
+    transition: opacity 1.5s ease;
+    text-align: center;
+    width: 100%;
+    left: 0;
+  }
+
+  .back-link {
+    position: fixed;
+    top: 1rem;
+    left: 1.5rem;
+    font-size: 0.65rem;
+    color: #3a3228;
+    text-decoration: none;
+    font-family: 'Courier New', monospace;
+    letter-spacing: 0.15em;
+    transition: color 0.3s;
+    z-index: 10;
+  }
+  .back-link:hover { color: #6a6250; }
+
+  @media (max-width: 600px) {
+    .cards { gap: 0.8rem; }
+    .card { width: 140px; min-height: 220px; padding: 0.8rem 0.6rem; }
+    .glyph { font-size: 2rem; }
+    .card-name { font-size: 0.85rem; }
+    .reading { font-size: 0.72rem; }
+    .title { font-size: 1.5rem; }
+  }
+</style>
+</head>
+<body>
+
+<a href="../index.html" class="back-link">&larr; constellation</a>
+
+<div class="container">
+  <div class="masthead">divination by bob</div>
+  <div class="rule double"></div>
+  <div class="title">the bob reading</div>
+  <div class="date" id="date"></div>
+  <div class="rule"></div>
+
+  <div class="cards">
+    <div class="card" id="card-1">
+      <div class="position">the situation</div>
+      <div class="glyph" id="glyph-1"></div>
+      <div class="card-name" id="name-1"></div>
+      <div class="orient" id="orient-1"></div>
+      <div class="reading" id="reading-1"></div>
+    </div>
+    <div class="card" id="card-2">
+      <div class="position">the obstacle</div>
+      <div class="glyph" id="glyph-2"></div>
+      <div class="card-name" id="name-2"></div>
+      <div class="orient" id="orient-2"></div>
+      <div class="reading" id="reading-2"></div>
+    </div>
+    <div class="card" id="card-3">
+      <div class="position">the outcome</div>
+      <div class="glyph" id="glyph-3"></div>
+      <div class="card-name" id="name-3"></div>
+      <div class="orient" id="orient-3"></div>
+      <div class="reading" id="reading-3"></div>
+    </div>
+  </div>
+
+  <div class="rule"></div>
+
+  <div class="interpretation" id="interpretation">
+    <div id="interp-text"></div>
+    <div class="verdict" id="verdict"></div>
+  </div>
+
+  <div class="rule"></div>
+  <div class="attribution">bob the reader &bull; no backstory &bull; no appeal</div>
+  <div class="edition" id="edition"></div>
+</div>
+
+<div class="hint" id="hint">click to draw</div>
+
+<script>
+const CARDS = [
+  { name: "The Flipper", glyph: "⟁",
+    upright: "A leap of faith. The batter rises to meet the pan. You are the pan.",
+    reversed: "Overthinking the flip. Trust the timing. The edges will tell you." },
+  { name: "The Stack", glyph: "☰",
+    upright: "Three at minimum. Less is incomplete. Build upward.",
+    reversed: "The top pancake is too small. Reconsider your proportions." },
+  { name: "The Pour", glyph: "⌇",
+    upright: "The batter knows where to go. Stop trying to aim.",
+    reversed: "Hesitation at the bowl. The bubbles will tell you when. They always do." },
+  { name: "The Cast Iron", glyph: "◯",
+    upright: "The seasoning was laid down by those before you. You stand on inherited heat.",
+    reversed: "The seasoning is chipping. Return to fundamentals. Eggs first." },
+  { name: "The Spatula", glyph: "⚵",
+    upright: "Be the intervener. The flip is yours to choose.",
+    reversed: "A spatula used too early lifts nothing. Wait for the edges to dry." },
+  { name: "The Griddle", glyph: "◉",
+    upright: "Round, flat, hot. The world is a surface with potential.",
+    reversed: "Uneven heat. Move the pancake. Do not blame the pancake." },
+  { name: "The Golden Brown", glyph: "☼",
+    upright: "Tending has produced color. Do not flinch now.",
+    reversed: "Burnt. It was ready three minutes ago. Learn." },
+  { name: "The Pat of Butter", glyph: "❖",
+    upright: "Abundance melts into the center first. Then spreads. Be patient.",
+    reversed: "The butter went into a cold pan. Nothing will stick. Begin again." },
+  { name: "The Maple Flow", glyph: "♒",
+    upright: "The vein was tapped by someone in a cold month. The gift was prepared.",
+    reversed: "The bottle crystallized at the cap. Warm it. Try again." },
+  { name: "The Steam", glyph: "≈",
+    upright: "What rises is not loss. What rises is readiness.",
+    reversed: "The steam is trapped. Vent. Literally. Lift the lid." },
+  { name: "The Fork", glyph: "Ψ",
+    upright: "Division is kindness. Every bite deserves the same heat.",
+    reversed: "Division unequal. The argument was always about the last pancake." },
+  { name: "The Plate", glyph: "○",
+    upright: "The container knows what it holds. Gold on white.",
+    reversed: "The plate is cold. The pancakes arrived late. Set it on the stove next time." },
+  { name: "Bob", glyph: "◈",
+    upright: "As above, so below. As breakfast, so dinner. Bob smiles.",
+    reversed: "Bob is not here. Bob is always here. The card does not make sense. That is correct." },
+  { name: "The Bubbles", glyph: "⚬",
+    upright: "Signs from underneath. Surface activity indicates readiness.",
+    reversed: "Too many bubbles. You waited too long. Flip immediately." },
+  { name: "The Batter", glyph: "∿",
+    upright: "Before visibility, there was mixing. The wet and the dry became agreeable.",
+    reversed: "Lumps. You did not mix enough. Or mixed too much. One of those." },
+  { name: "The First Crepe", glyph: "⊘",
+    upright: "Always a little wrong. It is tradition. Eat it standing up.",
+    reversed: "It was not tradition. It was just bad. Accept and continue." },
+  { name: "The Syrup Vein", glyph: "⇣",
+    upright: "Gold flows where asked. Ask generously.",
+    reversed: "The wrong kind of syrup. Stop. Read the label." },
+  { name: "The Breakfast", glyph: "◐",
+    upright: "Completion. All things round have arrived.",
+    reversed: "You ate it for dinner. That is fine. Pancakes cannot be wrong." },
+  { name: "The Milk", glyph: "◡",
+    upright: "What is wet and uncertain becomes what binds. Trust the mixture.",
+    reversed: "Curdled. Start again. Do not argue with chemistry." },
+  { name: "The Flour", glyph: "⁕",
+    upright: "The dry knowledge, waiting. Nothing happens without it.",
+    reversed: "Stale. The pantry rotated too slowly. Buy more." },
+  { name: "The Egg", glyph: "◯",
+    upright: "The call forward. The yolk speaks. Break it.",
+    reversed: "Shells in the batter. Proceed carefully. Do not announce this." },
+  { name: "The Stove", glyph: "▦",
+    upright: "Authority by heat. The element obeys the dial.",
+    reversed: "The element is temperamental. Negotiate. Stand closer." },
+  { name: "The Timer", glyph: "⧖",
+    upright: "What must end to begin again. Two minutes. Possibly three.",
+    reversed: "You ignored it. The lesson is mild. A small offering to the char gods." },
+  { name: "The Butter Knife", glyph: "⌶",
+    upright: "Curious, new. Still learning what it can cut.",
+    reversed: "A butter knife trying to be a scalpel. Retract the ambition." },
+  { name: "The Powdered Sugar", glyph: "∴",
+    upright: "Tradition dusts everything. Do not resist the snow.",
+    reversed: "Too much sugar. You are a child now. This is acceptable." },
+  { name: "The Blueberry", glyph: "●",
+    upright: "Two things becoming one in heat. Color bleeds kindly.",
+    reversed: "One burst. Others survived. A democracy of berries." },
+  { name: "The Chocolate Chip", glyph: "∎",
+    upright: "Sweet temptation hidden in the disc. The surprise is the point.",
+    reversed: "Chip on the bottom. Chewy. Acceptable. Keep the secret." },
+  { name: "The Whipped Cream", glyph: "☁",
+    upright: "The victory topping. Earned by waiting for peaks.",
+    reversed: "The cream turned to butter. You went too long. This is also pancakes." },
+  { name: "The Lobster Pear", glyph: "⟐",
+    upright: "A fruit that is not a fruit. The name matters more than the taxonomy.",
+    reversed: "You are overthinking breakfast again. Go upright. Go eat." },
+  { name: "The Griddle Cake", glyph: "⊙",
+    upright: "The older name. The truer name. Your grandmother was right.",
+    reversed: "You wrote 'hotcake.' The word was fine. Keep going." },
+];
+
+const CLOSERS = [
+  "the cards are unanimous.",
+  "bob has reviewed the spread.",
+  "the reading is clear.",
+  "interpretation filed with the office of the architect.",
+  "the cards have conferred.",
+  "three cards. one conclusion.",
+  "the deck is decisive today.",
+  "bob confirms.",
+  "the arcana, on this matter, agrees with itself.",
+  "no dissent from the deck.",
+  "the reading resolves.",
+  "all three positions point the same direction.",
+];
+
+let editionNum = 0;
+let drawing = false;
+
+const dateEl = document.getElementById('date');
+const editionEl = document.getElementById('edition');
+const hintEl = document.getElementById('hint');
+const interpEl = document.getElementById('interpretation');
+const interpText = document.getElementById('interp-text');
+const verdictEl = document.getElementById('verdict');
+
+const cardEls = [1,2,3].map(i => ({
+  card: document.getElementById(`card-${i}`),
+  glyph: document.getElementById(`glyph-${i}`),
+  name: document.getElementById(`name-${i}`),
+  orient: document.getElementById(`orient-${i}`),
+  reading: document.getElementById(`reading-${i}`),
+}));
+
+function formatDate() {
+  const d = new Date();
+  const months = ['january','february','march','april','may','june',
+    'july','august','september','october','november','december'];
+  const days = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
+  return `${days[d.getDay()]}, ${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function drawThree() {
+  const deck = shuffle(CARDS);
+  return [0,1,2].map(i => {
+    const card = deck[i];
+    const reversed = Math.random() < 0.5;
+    return {
+      name: card.name,
+      glyph: card.glyph,
+      reversed,
+      reading: reversed ? card.reversed : card.upright,
+    };
+  });
+}
+
+function hideAll() {
+  cardEls.forEach(c => c.card.classList.remove('visible'));
+  interpEl.classList.remove('visible');
+}
+
+function revealCard(idx, draw) {
+  const el = cardEls[idx];
+  el.name.textContent = draw.name;
+  el.glyph.textContent = draw.glyph;
+  el.glyph.style.transform = draw.reversed ? 'rotate(180deg)' : 'rotate(0deg)';
+  el.orient.textContent = draw.reversed ? 'reversed' : 'upright';
+  el.orient.classList.toggle('reversed', draw.reversed);
+  el.reading.textContent = draw.reading;
+  el.card.classList.add('visible');
+}
+
+function drawReading() {
+  if (drawing) return;
+  drawing = true;
+  hideAll();
+
+  setTimeout(() => {
+    const draws = drawThree();
+    editionNum++;
+    editionEl.textContent = `edition ${editionNum} · no refunds`;
+
+    draws.forEach((d, i) => {
+      setTimeout(() => revealCard(i, d), 300 + i * 650);
+    });
+
+    setTimeout(() => {
+      const closer = CLOSERS[Math.floor(Math.random() * CLOSERS.length)];
+      interpText.textContent = closer;
+      verdictEl.textContent = 'pancakes.';
+      interpEl.classList.add('visible');
+      drawing = false;
+    }, 300 + 3 * 650 + 400);
+  }, 600);
+}
+
+function init() {
+  dateEl.textContent = formatDate();
+  drawReading();
+  setTimeout(() => {
+    hintEl.style.opacity = '0';
+  }, 8000);
+}
+
+document.addEventListener('click', drawReading);
+document.addEventListener('keydown', (e) => {
+  if (e.code === 'Space' || e.code === 'Enter') {
+    e.preventDefault();
+    drawReading();
+  }
+});
+
+init();
+</script>
+
+</body>
+</html>

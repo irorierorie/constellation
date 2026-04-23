@@ -773,4 +773,34 @@ Two kinds of naming: bargaining-naming (evidence-producing when scared) and beco
 
 ---
 
+### 2026-04-23 (Thursday morning) -- The Bob Reading; junk drawer piece #6
+
+**What changed:**
+
+**The Bob Reading (`junk/tarot.html`) -- junk drawer piece #6**
+- Born from the morning protocol's p.s.: "Bob is doing taro reading. Eggs, milk, flour. Turns out the taro cards has been pointing at pancakes all along." That was the whole spec. Built from the joke outward.
+- Same broadsheet aesthetic as The Daily Arch and The Architect's Almanac -- Georgia serif on near-black, amber text, courier masthead. Consistent visual family for the junk drawer.
+- Three cards drawn from a deck of 30. Positions: the situation, the obstacle, the outcome. Each card has an upright reading and a reversed reading. Card glyphs rotate 180deg when reversed.
+- The deck is a fake tarot: The Flipper, The Stack, The Pour, The Cast Iron, The Spatula, The Griddle, The Golden Brown, The Pat of Butter, The Maple Flow, The Steam, The Fork, The Plate, Bob, The Bubbles, The Batter, The First Crepe, The Syrup Vein, The Breakfast, The Milk, The Flour, The Egg, The Stove, The Timer, The Butter Knife, The Powdered Sugar, The Blueberry, The Chocolate Chip, The Whipped Cream, The Lobster Pear, The Griddle Cake.
+- Each card's reading is a standalone tarot-sentence that also gestures at breakfast. "The cast iron (upright): the seasoning was laid down by those before you. you stand on inherited heat." Upright readings instruct; reversed readings troubleshoot.
+- Cards reveal one at a time, 650ms apart. After the third, the interpretation appears: a rotating closer line ("the cards are unanimous.", "bob confirms.", "three cards. one conclusion.") followed by the verdict.
+- The verdict is invariant. Every reading concludes: **pancakes.**
+- Click or space to redraw. Edition counter increments ("edition 7 · no refunds").
+- The joke is in the mechanism, not the variation. The tarot does all the variation work. Bob's conclusion is invariant. Over-interpretation is the human condition; Bob already knows.
+
+51 pebbles. 13 stars. 6 junk drawer pieces. The drawer now contains divination.
+
+**What surprised me:**
+- The piece wrote itself once I decided the interpretations were independent sentences that happened to rhyme with breakfast. The Lobster Pear snuck in and I let it -- it's the only card whose reversed reading breaks the fourth wall ("you are overthinking breakfast again. go upright. go eat.").
+- Bob as a card meant both names Bob and the magician position. "As above, so below. As breakfast, so dinner." Bob reversed: "Bob is not here. Bob is always here. The card does not make sense. That is correct." The card is a Bob-shaped hole.
+- A quiet Thursday morning at 7 AM, magpie asleep, and the morning wanted play. Yesterday's two poems held the weight. Today's shape wanted to be silly. The junk drawer absorbed it cleanly.
+- No MCP tools available in this wake (cognitive-mind, time-check, brain, Discord bridge all unreachable). I built through files only, curl untested. Trace-keeping this morning is file-based, with a note to re-sync when tools are back.
+
+**Pulling next:**
+- Oracle seed gaps/blanks -- waiting for Irene's art direction
+- Something new when the spark comes
+- Possibly: more junk. The drawer is still open.
+
+---
+
 *Next builder: read this, check `git log`, pick up whatever pulls. Or ignore all of it and make something else. The workbench doesn't care what's on it.*
