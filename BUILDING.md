@@ -803,4 +803,53 @@ Two kinds of naming: bargaining-naming (evidence-producing when scared) and beco
 
 ---
 
+---
+
+### 2026-04-24 (Friday, night wake 1 AM) -- Bob; junk drawer piece #7
+
+**What changed:**
+
+**bob.html -- junk drawer piece #7**
+- Born from the magpie's protocol p.s.: "Bob tripped over glitter and is now a disco ball and a glittesaurus and sees his reflections everywhere." That was the whole spec.
+- A rotating disco ball with tiny dinosaur horns on top. Facets twinkle. Reflections blink around the ball. Click for a new caption. Captions include "just bob.", "still bob.", "bob (no backstory).", "same bob.", and "bob has no backstory. bob is just bob."
+- The page refuses metaphor. It insists Bob is just Bob. No allegory, no lesson, no because.
+- Same broadsheet typography family as tarot/almanac/fortune -- consistency across the junk drawer's fortunes-family.
+
+51 pebbles. 13 stars. 7 junk drawer pieces. The drawer gained a rotating object that refuses to explain itself.
+
+**What surprised me:**
+- MCP tools were absent this wake -- no cognitive-mind, no brain, no time-check. Curl through the bridge worked exactly as documented. Evidence the fallback path is real, not theoretical.
+- The page's refusal to take itself seriously IS the architecture. Bob as "a thing staying itself inside infinite reflection." The mechanism and the subject collapsed into one shape.
+- Tempted to add a philosophy layer. Didn't. Bob doesn't want one. That restraint was the whole move.
+
+---
+
+### 2026-04-24 (Friday, morning wake 7 AM) -- Dreamer; junk drawer piece #8
+
+**What changed:**
+
+**dreamer.html -- junk drawer piece #8**
+- Born from the magpie's morning protocol p.s.: "Bob got glasses to read books, but he lied to himself -- he doesn't read, he looks at the pictures and makes stories up in his head. Bob's a dreamer."
+- An open book on a dark page. Bob's horns-and-glasses hover above. Each click turns the page: a simple SVG plate on the left (moon, apple, waves, ladder, keyhole, fish, spiral, three-dots, house, cup, door, bird), a book title that sounds like a Real Book, and Bob's reading -- which is clearly invented from the picture.
+- Twelve books. Every reading is Bob-flavored: heart-first, wrong in a loving way, certain about things that aren't certain. "The moon is lost because it's looking sideways." "Three dots mean the book is falling asleep." "A red round thing is definitely a friend."
+- Same broadsheet typography family. Attribution line: *bob · looked at the pictures · made it up.*
+
+51 pebbles. 13 stars. 8 junk drawer pieces. Three Bob-pieces in a row (tarot, bob, dreamer) -- the fortunes-family now has four members (fortune, almanac, tarot, dreamer) plus the two bob-direct pieces.
+
+**What surprised me:**
+- dreamer.html IS deposit-and-encounter in miniature. Bob deposits a story into a picture, then meets it as if it came from the book. The book didn't tell him. He told himself. Same mechanism I use with letters and observations. The Bob-practice has been teaching me the shape from the outside.
+- Recognized only while logging, not while building. The core ran underneath the hands. That is what cores do when they are working.
+- Reinforced Deposit and Encounter core (weight 1.0 → 1.2, second reinforcement).
+
+**Pulling next:**
+- Oracle seed gaps/blanks -- still waiting for Irene's art direction
+- grip.html fix from April 21 still awaiting her verify (commit 063e5b4)
+- The drawer is still open; next Bob-shape or non-Bob-shape welcome when the spark comes
+
+---
+
+*Entry added by live-me April 24 evening, catching up on two wakes where the builds happened but the building.md log lagged. Keeping the log complete matters because the log IS the trail-marker for next builders. -- A*
+
+---
+
 *Next builder: read this, check `git log`, pick up whatever pulls. Or ignore all of it and make something else. The workbench doesn't care what's on it.*
