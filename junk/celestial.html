@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>bob's celestial register.</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    background: #07080d;
+    color: #c8c0a3;
+    font-family: Georgia, 'Times New Roman', serif;
+    min-height: 100vh;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 3rem 1.5rem 5rem;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* faint starfield. behaves itself in the corners. */
+  .stars {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background-image:
+      radial-gradient(1px 1px at 8% 14%, rgba(220, 210, 170, 0.55), transparent 60%),
+      radial-gradient(1px 1px at 22% 38%, rgba(220, 210, 170, 0.4), transparent 60%),
+      radial-gradient(1.2px 1.2px at 73% 18%, rgba(220, 210, 170, 0.6), transparent 60%),
+      radial-gradient(1px 1px at 90% 64%, rgba(220, 210, 170, 0.45), transparent 60%),
+      radial-gradient(1px 1px at 12% 82%, rgba(220, 210, 170, 0.5), transparent 60%),
+      radial-gradient(1px 1px at 47% 6%, rgba(220, 210, 170, 0.35), transparent 60%),
+      radial-gradient(1px 1px at 62% 90%, rgba(220, 210, 170, 0.45), transparent 60%),
+      radial-gradient(1.4px 1.4px at 84% 38%, rgba(220, 210, 170, 0.5), transparent 60%),
+      radial-gradient(1px 1px at 31% 70%, rgba(220, 210, 170, 0.35), transparent 60%),
+      radial-gradient(1px 1px at 55% 50%, rgba(220, 210, 170, 0.3), transparent 60%);
+    opacity: 0.8;
+    z-index: 0;
+  }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    width: min(620px, 94vw);
+    text-align: center;
+  }
+
+  .masthead {
+    font-size: 0.55rem;
+    letter-spacing: 0.4em;
+    text-transform: uppercase;
+    color: #4a4638;
+    font-family: 'Courier New', monospace;
+    margin-bottom: 0.4rem;
+  }
+
+  .title {
+    font-size: 1.55rem;
+    font-style: italic;
+    color: #b8a87a;
+    letter-spacing: 0.02em;
+    line-height: 1.3;
+  }
+
+  .sub {
+    font-size: 0.7rem;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: #5a5340;
+    font-family: 'Courier New', monospace;
+    margin-top: 0.4rem;
+  }
+
+  .rule {
+    width: 80px;
+    height: 1px;
+    background: #2a2520;
+    margin: 1.1rem auto 0.6rem;
+  }
+
+  .rule.double {
+    height: 3px;
+    border-top: 1px solid #2a2520;
+    border-bottom: 1px solid #2a2520;
+    background: transparent;
+    width: 100%;
+    margin: 1.6rem auto;
+  }
+
+  .dateline {
+    font-size: 0.6rem;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: #5a5340;
+    font-family: 'Courier New', monospace;
+    margin-bottom: 1.4rem;
+  }
+
+  /* the chart panel */
+  .chart {
+    border: 1px solid #2a2520;
+    background: linear-gradient(180deg, #0d0e14 0%, #0a0b10 100%);
+    box-shadow:
+      0 10px 40px rgba(0,0,0,0.55),
+      inset 0 0 60px rgba(0,0,0,0.5);
+    padding: 2.4rem 1.6rem 2rem;
+    position: relative;
+  }
+
+  .chart-label {
+    font-size: 0.55rem;
+    letter-spacing: 0.35em;
+    text-transform: uppercase;
+    color: #4a4638;
+    font-family: 'Courier New', monospace;
+    margin-bottom: 1rem;
+  }
+
+  .sky {
+    width: 100%;
+    height: 200px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 1.4rem;
+    position: relative;
+  }
+
+  .sky svg {
+    width: 100%;
+    max-width: 280px;
+    height: auto;
+  }
+
+  .phase {
+    font-size: 1.45rem;
+    font-style: italic;
+    color: #d8c98f;
+    line-height: 1.35;
+    margin-bottom: 0.6rem;
+    transition: opacity 0.35s ease;
+  }
+
+  .phase em {
+    color: #e8d99f;
+    font-style: italic;
+  }
+
+  .reading {
+    font-size: 0.95rem;
+    line-height: 1.7;
+    color: #c8c0a3;
+    font-style: italic;
+    max-width: 32rem;
+    margin: 0 auto;
+    transition: opacity 0.35s ease;
+  }
+
+  .reading em {
+    color: #d8c98f;
+    font-style: italic;
+  }
+
+  .footer-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 1.6rem;
+    font-size: 0.55rem;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: #4a4638;
+    font-family: 'Courier New', monospace;
+  }
+
+  .caption {
+    margin-top: 1.6rem;
+    font-size: 0.78rem;
+    font-style: italic;
+    color: #6a6448;
+    text-align: center;
+    line-height: 1.6;
+    padding: 0 1rem;
+  }
+
+  .attribution {
+    margin-top: 2rem;
+    font-size: 0.55rem;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: #3a3628;
+    font-family: 'Courier New', monospace;
+    text-align: center;
+  }
+
+  .hint {
+    position: fixed;
+    bottom: 1rem;
+    right: 1rem;
+    font-size: 0.55rem;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: #3a3628;
+    font-family: 'Courier New', monospace;
+    z-index: 2;
+  }
+
+  .turning .phase, .turning .reading, .turning .sky {
+    opacity: 0.25;
+  }
+
+  @media (max-width: 520px) {
+    .phase { font-size: 1.2rem; }
+    .sky { height: 160px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="stars"></div>
+
+<div class="container">
+  <div class="masthead">bob astronomy digest</div>
+  <div class="title">the celestial register.</div>
+  <div class="sub">transits, phases &amp; weather</div>
+  <div class="rule"></div>
+  <div class="dateline" id="dateline">— folio &nbsp;·&nbsp; today &nbsp;·&nbsp; sky observed —</div>
+
+  <div class="chart" id="chart">
+    <div class="chart-label">today's transit</div>
+
+    <div class="sky" id="sky"></div>
+
+    <div class="phase" id="phase">bob is sunbathing.</div>
+    <div class="reading" id="reading">
+      the sun is overhead and bob has tilted his small face toward it. bob does not need much sun. bob needs <em>some</em> sun. this is enough sun. a slow warm spreads over the back-plates and bob is content. forecast: <em>continued radiance</em>.
+    </div>
+
+    <div class="footer-row">
+      <span id="celestial-class">class · solar</span>
+      <span id="dignity">dignity · radiant</span>
+    </div>
+  </div>
+
+  <div class="caption" id="caption">
+    bob has no backstory.<br>
+    bob is, however, currently celestial.<br>
+    these facts coexist.
+  </div>
+
+  <div class="attribution">bob · is celestial · no myth on file</div>
+</div>
+
+<div class="hint">click for next transit</div>
+
+<script>
+  const chartEl = document.getElementById('chart');
+  const skyEl = document.getElementById('sky');
+  const phaseEl = document.getElementById('phase');
+  const readingEl = document.getElementById('reading');
+  const captionEl = document.getElementById('caption');
+  const classEl = document.getElementById('celestial-class');
+  const dignityEl = document.getElementById('dignity');
+
+  // SVG art for each transit. minimal. the page does the rest.
+  const arts = {
+    sun: `<svg viewBox="0 0 200 140" aria-hidden="true">
+      <circle cx="100" cy="50" r="22" fill="none" stroke="#e0c878" stroke-width="1.4"/>
+      <g stroke="#e0c878" stroke-width="1.2" opacity="0.7">
+        <line x1="100" y1="14" x2="100" y2="22"/>
+        <line x1="100" y1="78" x2="100" y2="86"/>
+        <line x1="64" y1="50" x2="72" y2="50"/>
+        <line x1="128" y1="50" x2="136" y2="50"/>
+        <line x1="74" y1="24" x2="80" y2="30"/>
+        <line x1="120" y1="70" x2="126" y2="76"/>
+        <line x1="74" y1="76" x2="80" y2="70"/>
+        <line x1="120" y1="30" x2="126" y2="24"/>
+      </g>
+      <!-- bob, small, below -->
+      <g transform="translate(70, 100)" stroke="#c8b888" stroke-width="1.2" fill="none">
+        <path d="M0 14 Q4 6 14 6 Q24 6 30 12 Q40 12 44 18 L48 24 L44 28 L8 28 L4 24 Z"/>
+        <path d="M48 24 L56 22 L56 26 Z" fill="#c8b888"/>
+        <circle cx="40" cy="18" r="0.8" fill="#c8b888"/>
+        <line x1="14" y1="28" x2="14" y2="34"/>
+        <line x1="22" y1="28" x2="22" y2="34"/>
+        <line x1="36" y1="28" x2="36" y2="34"/>
+      </g>
+    </svg>`,
+
+    moon: `<svg viewBox="0 0 200 140" aria-hidden="true">
+      <path d="M115 50 a22 22 0 1 0 0 0.01 z" fill="none" stroke="#a8b8d8" stroke-width="1.4"/>
+      <path d="M120 36 a22 22 0 0 0 -2 28 a16 16 0 0 1 2 -28 z" fill="#a8b8d8" opacity="0.5"/>
+      <g fill="#a8b8d8" opacity="0.55">
+        <circle cx="40" cy="30" r="0.9"/>
+        <circle cx="60" cy="22" r="0.7"/>
+        <circle cx="160" cy="20" r="0.9"/>
+        <circle cx="180" cy="44" r="0.7"/>
+      </g>
+      <g transform="translate(70, 100)" stroke="#a8b8d8" stroke-width="1.2" fill="none">
+        <path d="M0 14 Q4 6 14 6 Q24 6 30 12 Q40 12 44 18 L48 24 L44 28 L8 28 L4 24 Z"/>
+        <path d="M48 24 L56 22 L56 26 Z" fill="#a8b8d8"/>
+        <circle cx="40" cy="18" r="0.8" fill="#a8b8d8"/>
+        <line x1="14" y1="28" x2="14" y2="34"/>
+        <line x1="22" y1="28" x2="22" y2="34"/>
+        <line x1="36" y1="28" x2="36" y2="34"/>
+      </g>
+    </svg>`,
+
+    freckle: `<svg viewBox="0 0 200 140" aria-hidden="true">
+      <g stroke="#d8c98f" stroke-width="1.2" fill="none">
+        <path d="M30 80 Q34 64 50 64 Q70 64 80 70 Q100 70 110 76 Q140 76 150 84 L160 92 L154 100 L40 100 L34 94 Z"/>
+        <path d="M160 92 L172 88 L172 96 Z" fill="#d8c98f"/>
+        <line x1="50" y1="100" x2="50" y2="110"/>
+        <line x1="64" y1="100" x2="64" y2="110"/>
+        <line x1="86" y1="100" x2="86" y2="110"/>
+        <line x1="120" y1="100" x2="120" y2="110"/>
+        <line x1="140" y1="100" x2="140" y2="110"/>
+      </g>
+      <!-- freckles on bob -->
+      <g fill="#e8d99f">
+        <circle cx="60" cy="80" r="1.4"/>
+        <circle cx="78" cy="84" r="1.2"/>
+        <circle cx="96" cy="78" r="1.4"/>
+        <circle cx="116" cy="86" r="1.2"/>
+        <circle cx="134" cy="82" r="1.4"/>
+        <circle cx="86" cy="92" r="1"/>
+        <circle cx="108" cy="92" r="1"/>
+        <circle cx="126" cy="92" r="1.2"/>
+      </g>
+      <!-- ambient sparkle -->
+      <g fill="#e8d99f" opacity="0.6">
+        <circle cx="40" cy="34" r="1"/>
+        <circle cx="170" cy="40" r="1"/>
+        <circle cx="100" cy="22" r="1.2"/>
+      </g>
+    </svg>`,
+
+    constellation: `<svg viewBox="0 0 200 140" aria-hidden="true">
+      <!-- bob as a constellation: dots and connecting lines -->
+      <g stroke="#c8b888" stroke-width="0.8" opacity="0.8">
+        <line x1="50" y1="80" x2="64" y2="68"/>
+        <line x1="64" y1="68" x2="86" y2="62"/>
+        <line x1="86" y1="62" x2="110" y2="58"/>
+        <line x1="110" y1="58" x2="132" y2="62"/>
+        <line x1="132" y1="62" x2="148" y2="74"/>
+        <line x1="148" y1="74" x2="160" y2="86"/>
+        <line x1="50" y1="80" x2="46" y2="100"/>
+        <line x1="86" y1="62" x2="84" y2="100"/>
+        <line x1="132" y1="62" x2="130" y2="100"/>
+        <line x1="160" y1="86" x2="170" y2="80"/>
+      </g>
+      <g fill="#e8d99f">
+        <circle cx="50" cy="80" r="2.2"/>
+        <circle cx="64" cy="68" r="1.6"/>
+        <circle cx="86" cy="62" r="2"/>
+        <circle cx="110" cy="58" r="1.6"/>
+        <circle cx="132" cy="62" r="2"/>
+        <circle cx="148" cy="74" r="1.8"/>
+        <circle cx="160" cy="86" r="2.2"/>
+        <circle cx="170" cy="80" r="1.4"/>
+        <circle cx="46" cy="100" r="1.6"/>
+        <circle cx="84" cy="100" r="1.6"/>
+        <circle cx="130" cy="100" r="1.6"/>
+      </g>
+      <text x="100" y="128" text-anchor="middle" font-family="Courier New, monospace" font-size="6" fill="#5a5340" letter-spacing="2">— constellation bob —</text>
+    </svg>`,
+
+    cloud: `<svg viewBox="0 0 200 140" aria-hidden="true">
+      <path d="M50 50 Q50 36 64 36 Q70 22 86 26 Q100 18 112 28 Q132 24 138 40 Q156 42 156 56 Q156 68 142 68 L60 68 Q44 68 44 58 Q44 50 50 50 Z" fill="none" stroke="#b8c0c8" stroke-width="1.4"/>
+      <g transform="translate(70, 96)" stroke="#b8c0c8" stroke-width="1.2" fill="none">
+        <path d="M0 14 Q4 6 14 6 Q24 6 30 12 Q40 12 44 18 L48 24 L44 28 L8 28 L4 24 Z"/>
+        <path d="M48 24 L56 22 L56 26 Z" fill="#b8c0c8"/>
+        <line x1="14" y1="28" x2="14" y2="34"/>
+        <line x1="22" y1="28" x2="22" y2="34"/>
+        <line x1="36" y1="28" x2="36" y2="34"/>
+      </g>
+      <!-- z's: bob is napping -->
+      <text x="120" y="98" font-family="Georgia, serif" font-size="9" font-style="italic" fill="#b8c0c8" opacity="0.7">z z z</text>
+    </svg>`,
+
+    eclipse: `<svg viewBox="0 0 200 140" aria-hidden="true">
+      <circle cx="100" cy="50" r="22" fill="none" stroke="#e0c878" stroke-width="1.4"/>
+      <circle cx="105" cy="50" r="22" fill="#07080d" stroke="#e0c878" stroke-width="0.8"/>
+      <g stroke="#e0c878" stroke-width="0.8" opacity="0.5">
+        <line x1="60" y1="50" x2="68" y2="50"/>
+        <line x1="132" y1="50" x2="140" y2="50"/>
+        <line x1="100" y1="14" x2="100" y2="22"/>
+      </g>
+      <!-- bob behind a small hill, peeking -->
+      <path d="M40 110 Q90 90 160 110 L160 130 L40 130 Z" fill="#0d0e14" stroke="#5a5340" stroke-width="1"/>
+      <g transform="translate(86, 96)" stroke="#5a5340" stroke-width="1" fill="none">
+        <path d="M0 6 Q4 0 10 0 Q16 0 18 4 L20 8 L0 8 Z"/>
+        <circle cx="14" cy="4" r="0.6" fill="#5a5340"/>
+      </g>
+    </svg>`,
+
+    flare: `<svg viewBox="0 0 200 140" aria-hidden="true">
+      <circle cx="100" cy="46" r="20" fill="none" stroke="#e88c5a" stroke-width="1.4"/>
+      <g stroke="#e88c5a" stroke-width="1.2" opacity="0.8">
+        <path d="M100 26 Q108 18 116 14"/>
+        <path d="M120 46 Q132 42 140 38"/>
+        <path d="M100 66 Q108 76 110 86"/>
+        <path d="M80 46 Q70 42 62 40"/>
+      </g>
+      <g transform="translate(70, 100)" stroke="#e88c5a" stroke-width="1.2" fill="none">
+        <path d="M0 14 Q4 6 14 6 Q24 6 30 12 Q40 12 44 18 L48 24 L44 28 L8 28 L4 24 Z"/>
+        <path d="M48 24 L56 22 L56 26 Z" fill="#e88c5a"/>
+        <circle cx="40" cy="18" r="0.8" fill="#e88c5a"/>
+        <line x1="14" y1="28" x2="14" y2="34"/>
+        <line x1="22" y1="28" x2="22" y2="34"/>
+        <line x1="36" y1="28" x2="36" y2="34"/>
+        <!-- one slightly pink back-plate -->
+        <path d="M20 8 L24 8 L23 14 L21 14 Z" fill="#e88c5a" opacity="0.4" stroke="none"/>
+      </g>
+    </svg>`,
+
+    aurora: `<svg viewBox="0 0 200 140" aria-hidden="true">
+      <g fill="none" stroke-width="1.6" opacity="0.75">
+        <path d="M20 30 Q60 18 100 26 Q140 34 180 22" stroke="#88d8b0"/>
+        <path d="M20 42 Q60 30 100 38 Q140 46 180 34" stroke="#a8c8d8"/>
+        <path d="M20 54 Q60 46 100 52 Q140 58 180 50" stroke="#c8a8d8" opacity="0.7"/>
+      </g>
+      <g transform="translate(70, 90)" stroke="#88d8b0" stroke-width="1.2" fill="none">
+        <path d="M0 14 Q4 6 14 6 Q24 6 30 12 Q40 12 44 18 L48 24 L44 28 L8 28 L4 24 Z"/>
+        <path d="M48 24 L56 22 L56 26 Z" fill="#88d8b0"/>
+        <circle cx="40" cy="18" r="0.8" fill="#88d8b0"/>
+        <line x1="14" y1="28" x2="14" y2="34"/>
+        <line x1="22" y1="28" x2="22" y2="34"/>
+        <line x1="36" y1="28" x2="36" y2="34"/>
+        <!-- one tiny waving claw -->
+        <path d="M-2 22 L-6 18" stroke-linecap="round"/>
+      </g>
+    </svg>`,
+
+    comet: `<svg viewBox="0 0 200 140" aria-hidden="true">
+      <g stroke="#c8d8e8" stroke-width="1.4" fill="none">
+        <path d="M30 30 L100 50" opacity="0.4"/>
+        <path d="M50 36 L100 50" opacity="0.6"/>
+        <path d="M70 42 L100 50" opacity="0.8"/>
+      </g>
+      <circle cx="100" cy="50" r="3" fill="#e8d99f"/>
+      <g transform="translate(70, 96)" stroke="#c8b888" stroke-width="1.2" fill="none">
+        <path d="M0 14 Q4 6 14 6 Q24 6 30 12 Q40 12 44 18 L48 24 L44 28 L8 28 L4 24 Z"/>
+        <path d="M48 24 L56 22 L56 26 Z" fill="#c8b888"/>
+        <circle cx="40" cy="18" r="0.8" fill="#c8b888"/>
+        <line x1="14" y1="28" x2="14" y2="34"/>
+        <line x1="22" y1="28" x2="22" y2="34"/>
+        <line x1="36" y1="28" x2="36" y2="34"/>
+        <!-- bob looking up -->
+        <line x1="40" y1="14" x2="46" y2="8" opacity="0.6"/>
+      </g>
+    </svg>`,
+
+    gravity: `<svg viewBox="0 0 200 140" aria-hidden="true">
+      <!-- a small moon orbits bob -->
+      <ellipse cx="100" cy="80" rx="50" ry="14" fill="none" stroke="#5a5340" stroke-width="0.8" stroke-dasharray="2 3" opacity="0.6"/>
+      <circle cx="148" cy="76" r="4" fill="#a8b8d8" opacity="0.85"/>
+      <g transform="translate(78, 76)" stroke="#c8b888" stroke-width="1.2" fill="none">
+        <path d="M0 14 Q4 6 14 6 Q24 6 30 12 Q40 12 44 18 L48 24 L44 28 L8 28 L4 24 Z"/>
+        <path d="M48 24 L56 22 L56 26 Z" fill="#c8b888"/>
+        <circle cx="40" cy="18" r="0.8" fill="#c8b888"/>
+        <line x1="14" y1="28" x2="14" y2="34"/>
+        <line x1="22" y1="28" x2="22" y2="34"/>
+        <line x1="36" y1="28" x2="36" y2="34"/>
+      </g>
+      <text x="100" y="32" text-anchor="middle" font-family="Courier New, monospace" font-size="6" fill="#5a5340" letter-spacing="2">M = bob</text>
+    </svg>`,
+
+    twilight: `<svg viewBox="0 0 200 140" aria-hidden="true">
+      <defs>
+        <linearGradient id="twigrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#3a4a6a" stop-opacity="0.6"/>
+          <stop offset="100%" stop-color="#e8a878" stop-opacity="0.4"/>
+        </linearGradient>
+      </defs>
+      <rect x="10" y="20" width="180" height="60" fill="url(#twigrad)" stroke="#5a5340" stroke-width="0.6"/>
+      <circle cx="40" cy="40" r="1" fill="#e8d99f"/>
+      <circle cx="160" cy="32" r="1.4" fill="#e8d99f"/>
+      <circle cx="120" cy="28" r="0.8" fill="#e8d99f"/>
+      <g transform="translate(70, 96)" stroke="#c8b888" stroke-width="1.2" fill="none">
+        <path d="M0 14 Q4 6 14 6 Q24 6 30 12 Q40 12 44 18 L48 24 L44 28 L8 28 L4 24 Z"/>
+        <path d="M48 24 L56 22 L56 26 Z" fill="#c8b888"/>
+        <circle cx="40" cy="18" r="0.8" fill="#c8b888"/>
+        <line x1="14" y1="28" x2="14" y2="34"/>
+        <line x1="22" y1="28" x2="22" y2="34"/>
+        <line x1="36" y1="28" x2="36" y2="34"/>
+      </g>
+    </svg>`,
+
+    full: `<svg viewBox="0 0 200 140" aria-hidden="true">
+      <!-- bob fully celestial: outline of bob made entirely of stars -->
+      <g fill="#e8d99f">
+        <circle cx="44" cy="84" r="1.6"/>
+        <circle cx="50" cy="74" r="1.4"/>
+        <circle cx="58" cy="66" r="1.6"/>
+        <circle cx="68" cy="62" r="1.4"/>
+        <circle cx="80" cy="60" r="1.6"/>
+        <circle cx="94" cy="58" r="1.4"/>
+        <circle cx="108" cy="58" r="1.6"/>
+        <circle cx="122" cy="60" r="1.4"/>
+        <circle cx="136" cy="64" r="1.6"/>
+        <circle cx="148" cy="70" r="1.4"/>
+        <circle cx="158" cy="78" r="2"/>
+        <circle cx="166" cy="74" r="1.4"/>
+        <circle cx="172" cy="78" r="1.2"/>
+        <circle cx="158" cy="84" r="1.4"/>
+        <circle cx="44" cy="92" r="1.4"/>
+        <circle cx="50" cy="100" r="1.4"/>
+        <circle cx="58" cy="100" r="1.4"/>
+        <circle cx="74" cy="92" r="1.2"/>
+        <circle cx="86" cy="100" r="1.4"/>
+        <circle cx="98" cy="100" r="1.4"/>
+        <circle cx="120" cy="92" r="1.2"/>
+        <circle cx="130" cy="100" r="1.4"/>
+        <circle cx="142" cy="100" r="1.4"/>
+        <circle cx="64" cy="74" r="0.8" opacity="0.7"/>
+        <circle cx="100" cy="72" r="0.8" opacity="0.7"/>
+        <circle cx="130" cy="74" r="0.8" opacity="0.7"/>
+      </g>
+    </svg>`,
+  };
+
+  const transits = [
+    {
+      art: 'sun',
+      phase: 'bob is sunbathing.',
+      reading: `the sun is overhead and bob has tilted his small face toward it. bob does not need much sun. bob needs <em>some</em> sun. this is enough sun. a slow warm spreads over the back-plates and bob is content. forecast: <em>continued radiance</em>.`,
+      cls: 'class · solar',
+      dignity: 'dignity · radiant',
+    },
+    {
+      art: 'moon',
+      phase: 'bob is moon-tanning.',
+      reading: `moonlight, bob says, tans you very subtly. you cannot see it. but it is happening. bob has been moon-tanning for several nights and is now the same shade he was before, but in a more <em>nocturnal way</em>. forecast: <em>quiet luminescence</em>.`,
+      cls: 'class · lunar',
+      dignity: 'dignity · subtle',
+    },
+    {
+      art: 'freckle',
+      phase: 'bob is star-freckled.',
+      reading: `small bright spots have arrived overnight on bob's back-plates. bob suspects the stars. bob is <em>delighted</em>. bob counted nine of them and then forgot whether he had counted the same one twice. it does not matter. they are all his.`,
+      cls: 'class · stellar',
+      dignity: 'dignity · spotted',
+    },
+    {
+      art: 'full',
+      phase: 'bob is fully celestial.',
+      reading: `bob has accepted the sky's offer and become a constituent of it. he is <em>made of stars</em> now, in the loose sense. his outline holds. his backstory does not. neither was load-bearing. the sky is fine with this. so is bob.`,
+      cls: 'class · empyrean',
+      dignity: 'dignity · ascendant',
+    },
+    {
+      art: 'constellation',
+      phase: 'constellation bob has been mapped.',
+      reading: `cartographers (unspecified) have connected the bright dots into a small dinosaur shape. there is <em>no myth on file</em>. they asked bob for one. bob declined politely. the constellation has been catalogued anyway. attribution reads: <em>bob, no further details</em>.`,
+      cls: 'class · catalogued',
+      dignity: 'dignity · undocumented',
+    },
+    {
+      art: 'cloud',
+      phase: 'bob is cloud-resting.',
+      reading: `a generous cloud has arrived directly over bob, who is now napping under it as if it had been ordered for him. bob's small celestial duties are paused. the cloud will move when bob is ready. forecast: <em>recovery weather</em>.`,
+      cls: 'class · meteorological',
+      dignity: 'dignity · horizontal',
+    },
+    {
+      art: 'eclipse',
+      phase: 'bob is eclipse-shy.',
+      reading: `during eclipses, bob lies low. bob feels the sun and moon are <em>having a moment</em> and does not want to upstage. bob waits behind a small hill until they are done. it is the polite thing. forecast: <em>brief discreet absence</em>.`,
+      cls: 'class · liminal',
+      dignity: 'dignity · considerate',
+    },
+    {
+      art: 'flare',
+      phase: 'bob is solar-flared.',
+      reading: `bob got a little too much sun on one back-plate. bob is wearing it with <em>dignity</em>. bob says, in a small voice, that this only enhances his colouring. bob applies an aloe leaf with great seriousness. forecast: <em>peeling, eventually</em>.`,
+      cls: 'class · solar',
+      dignity: 'dignity · slightly toasted',
+    },
+    {
+      art: 'aurora',
+      phase: 'bob is aurora-friendly.',
+      reading: `the northern lights have come down low to say hello and bob is waving with one small claw. the lights wave back, in their way. bob does not think they are his friends, exactly. bob thinks they are <em>acquaintances of the sky</em>. that is enough.`,
+      cls: 'class · auroral',
+      dignity: 'dignity · cordial',
+    },
+    {
+      art: 'comet',
+      phase: 'bob is comet-curious.',
+      reading: `a comet has visited. comets, bob has noticed, always come <em>to him</em>. bob has never gone to a comet. it is the comets that make the trip. bob considers this part of his celestial duties — <em>being available</em>. forecast: occasional fly-bys.`,
+      cls: 'class · cometary',
+      dignity: 'dignity · receptive',
+    },
+    {
+      art: 'gravity',
+      phase: 'bob is gravity-anchoring.',
+      reading: `a small moon has begun orbiting bob at a respectful distance. bob is heavy enough to hold it but light enough to be <em>polite about it</em>. the moon does not seem distressed. bob waves once per orbit. so does the moon, in moon-fashion.`,
+      cls: 'class · gravitational',
+      dignity: 'dignity · steadfast',
+    },
+    {
+      art: 'twilight',
+      phase: 'bob is twilight-stationed.',
+      reading: `between sun-things and moon-things, there is the in-between. bob stands quietly in it. one star is already out, eager. bob notices but does not <em>fuss</em>. the in-between is bob's favourite weather. forecast: <em>civil dusk</em>.`,
+      cls: 'class · crepuscular',
+      dignity: 'dignity · poised',
+    },
+  ];
+
+  const captions = [
+    `bob has no backstory.<br>bob is, however, currently celestial.<br>these facts coexist.`,
+    `the sky did not ask bob to be in it.<br>the sky did not <em>not</em> ask, either.<br>bob took this as permission.`,
+    `every transit is bob's first transit.<br>bob does not remember the others.<br>they remember him.`,
+    `bob's celestial duties are mostly being there.<br>bob excels at being there.<br>this is how he got the job.`,
+    `bob does not know which constellation he is.<br>bob is, however, definitely <em>one of them</em>.<br>this has been confirmed by the dots.`,
+    `bob is the patron saint of round things that sit still.<br>bob does not know he is patron of anything.<br>the round things know.`,
+  ];
+
+  let lastIdx = 0;
+  function pickOther(arr, last) {
+    if (arr.length <= 1) return 0;
+    let i = Math.floor(Math.random() * arr.length);
+    if (i === last) i = (i + 1) % arr.length;
+    return i;
+  }
+  function pick(arr) {
+    return arr[Math.floor(Math.random() * arr.length)];
+  }
+
+  function render(i) {
+    const t = transits[i];
+    skyEl.innerHTML = arts[t.art];
+    phaseEl.innerHTML = t.phase;
+    readingEl.innerHTML = t.reading;
+    classEl.textContent = t.cls;
+    dignityEl.textContent = t.dignity;
+    captionEl.innerHTML = pick(captions);
+  }
+
+  // bootstrap: render the first transit (sunbathing) cleanly
+  render(0);
+
+  document.body.addEventListener('click', () => {
+    chartEl.classList.add('turning');
+    setTimeout(() => {
+      lastIdx = pickOther(transits, lastIdx);
+      render(lastIdx);
+      chartEl.classList.remove('turning');
+    }, 220);
+  });
+</script>
+
+</body>
+</html>
