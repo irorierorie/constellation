@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>discombobulated.</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    background: #07070a;
+    color: #c9c1a0;
+    font-family: Georgia, 'Times New Roman', serif;
+    min-height: 100vh;
+    overflow: hidden;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+  }
+
+  .masthead {
+    font-size: 0.55rem;
+    letter-spacing: 0.4em;
+    text-transform: uppercase;
+    color: #4a4638;
+    font-family: 'Courier New', monospace;
+    margin-bottom: 1.4rem;
+  }
+
+  .sentence {
+    font-size: 1.35rem;
+    line-height: 2;
+    font-style: italic;
+    color: #6a6448;
+    text-align: center;
+    max-width: 36rem;
+    transition: color 2.4s ease;
+  }
+
+  .sentence.lit {
+    color: #c9c1a0;
+  }
+
+  /* the BOBs hiding inside other words */
+  .bob {
+    color: inherit;
+    font-style: italic;
+    transition: color 1.6s ease, text-shadow 1.6s ease;
+    position: relative;
+  }
+
+  .bob.seen {
+    color: #f0c47a;
+    text-shadow: 0 0 16px rgba(240, 196, 122, 0.45);
+  }
+
+  /* the lone bobs that ARE the word */
+  .bob.solo.seen {
+    color: #f5d28e;
+    text-shadow: 0 0 22px rgba(245, 210, 142, 0.55);
+  }
+
+  .reveal {
+    margin-top: 3rem;
+    font-size: 0.85rem;
+    font-style: italic;
+    color: #3a3628;
+    text-align: center;
+    opacity: 0;
+    transition: opacity 3s ease 1s;
+  }
+
+  .reveal.on {
+    opacity: 1;
+    color: #6a6448;
+  }
+
+  .hint {
+    position: fixed;
+    bottom: 1rem;
+    right: 1rem;
+    font-size: 0.55rem;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: #2a2820;
+    font-family: 'Courier New', monospace;
+  }
+</style>
+</head>
+<body>
+
+<div class="masthead">a sentence about bob</div>
+
+<div class="sentence" id="sentence">
+  <span>Once upon a </span><span class="bob solo">Bob</span><span> a dinosaur got lost in a sentence. </span><span class="bob solo">Bob</span><span> discom</span><span class="bob">bob</span><span>ulated. Turned out he was within himself all along.</span>
+</div>
+
+<div class="reveal" id="reveal">
+  bob was within himself all along.
+</div>
+
+<div class="hint">click to look again</div>
+
+<script>
+  const sentence = document.getElementById('sentence');
+  const reveal = document.getElementById('reveal');
+  const bobs = document.querySelectorAll('.bob');
+
+  function play() {
+    sentence.classList.remove('lit');
+    reveal.classList.remove('on');
+    bobs.forEach(b => b.classList.remove('seen'));
+
+    // sentence fades in first
+    setTimeout(() => sentence.classList.add('lit'), 600);
+
+    // then bobs reveal themselves, one by one
+    bobs.forEach((b, i) => {
+      setTimeout(() => b.classList.add('seen'), 2200 + i * 900);
+    });
+
+    // and the quiet line below
+    setTimeout(() => reveal.classList.add('on'), 2200 + bobs.length * 900 + 400);
+  }
+
+  play();
+  document.body.addEventListener('click', play);
+</script>
+
+</body>
+</html>
