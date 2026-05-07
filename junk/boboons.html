@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>boboons.</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    background: #07070a;
+    color: #c9c1a0;
+    font-family: Georgia, 'Times New Roman', serif;
+    min-height: 100vh;
+    overflow: hidden;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    padding: 2rem;
+  }
+
+  .masthead {
+    font-size: 0.55rem;
+    letter-spacing: 0.4em;
+    text-transform: uppercase;
+    color: #4a4638;
+    font-family: 'Courier New', monospace;
+    margin-bottom: 1.2rem;
+  }
+
+  .name {
+    font-size: 2.2rem;
+    font-style: italic;
+    color: #b8a87a;
+    letter-spacing: 0.02em;
+    margin-bottom: 0.3rem;
+  }
+
+  .rule {
+    width: 60px;
+    height: 1px;
+    background: #2a2520;
+    margin: 0.5rem auto 1.6rem;
+  }
+
+  .field {
+    position: relative;
+    width: 360px;
+    height: 320px;
+    margin: 0.5rem 0 1.5rem;
+  }
+
+  .bob-anchor {
+    position: absolute;
+    left: 50%;
+    bottom: 22px;
+    transform: translateX(-50%);
+    font-size: 1.6rem;
+    font-style: italic;
+    color: #b8a87a;
+    letter-spacing: 0.02em;
+    z-index: 2;
+  }
+
+  .ground {
+    position: absolute;
+    left: 25%;
+    right: 25%;
+    bottom: 16px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, #2a2520, transparent);
+  }
+
+  /* a boboon: small word that bobs in place, no string */
+  .boboon {
+    position: absolute;
+    font-size: 0.85rem;
+    font-style: italic;
+    color: #d8c98f;
+    opacity: 0;
+    white-space: nowrap;
+    pointer-events: none;
+    text-shadow: 0 0 12px rgba(216, 201, 143, 0.25);
+    transition: opacity 1.6s ease;
+    will-change: transform;
+  }
+
+  .boboon.on {
+    opacity: 0.78;
+  }
+
+  .boboon.escaping {
+    transition: opacity 3.2s ease, transform 3.2s ease;
+    opacity: 0;
+    transform: translate(var(--x, 0), -260px);
+  }
+
+  .caption {
+    margin-top: 0.8rem;
+    font-size: 0.85rem;
+    font-style: italic;
+    color: #6a6448;
+    text-align: center;
+    max-width: 28rem;
+    line-height: 1.6;
+    padding: 0 1.5rem;
+    transition: color 2s ease;
+  }
+
+  .hint {
+    position: fixed;
+    bottom: 1rem;
+    right: 1rem;
+    font-size: 0.55rem;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: #2a2820;
+    font-family: 'Courier New', monospace;
+  }
+</style>
+</head>
+<body>
+
+<div class="masthead">previously balloons</div>
+<div class="name">boboons.</div>
+<div class="rule"></div>
+
+<div class="field" id="field">
+  <div class="ground"></div>
+  <div class="bob-anchor">bob.</div>
+</div>
+
+<div class="caption" id="caption">
+  bob renamed them. they have no strings.<br>
+  they bob next to bob without being told to.
+</div>
+
+<div class="hint">click to release one</div>
+
+<script>
+  const field = document.getElementById('field');
+  const caption = document.getElementById('caption');
+
+  const boboonWords = [
+    'boboon',
+    'boboon (red)',
+    'boboon (yellow)',
+    'boboon',
+    'boboon (small)',
+    'boboon (also)',
+    'boboon (still here)',
+    'boboon',
+    'boboon (the quiet one)',
+    'boboon',
+    'boboon (round)',
+    'boboon',
+  ];
+
+  const captions = [
+    'bob renamed them. they have no strings.<br>they bob next to bob without being told to.',
+    'a boboon does not need to be tied.<br>it knows where bob is.',
+    'one escaped once. bob did not chase it.<br>it came back as a different boboon.',
+    'bob has no hands. the boboons hold themselves.<br>this seems to work.',
+    'the boboons agree with bob about most things.<br>they disagree quietly when needed.',
+    'a boboon left. it is now a balloon again.<br>boboons can resign.',
+    "the magpie made the first boboon.<br>bob keeps the rest.",
+  ];
+
+  const liveBoboons = new Set();
+  const MAX = 7;
+
+  function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+  function spawn() {
+    if (liveBoboons.size >= MAX) return;
+    const el = document.createElement('div');
+    el.className = 'boboon';
+    el.textContent = pick(boboonWords);
+
+    // place around bob (the anchor sits bottom-center)
+    const baseX = 180; // center of 360-wide field
+    const baseY = 280; // near the anchor, but above the ground
+    const spread = 130;
+    const heightSpread = 200;
+    const x = baseX + (Math.random() - 0.5) * spread;
+    const y = baseY - Math.random() * heightSpread - 20;
+
+    el.style.left = x + 'px';
+    el.style.top = y + 'px';
+
+    // each boboon bobs at its own phase and amplitude
+    const period = 2.6 + Math.random() * 2.4;
+    const amp = 6 + Math.random() * 8;
+    const phase = Math.random() * Math.PI * 2;
+
+    el.dataset.x = x;
+    el.dataset.y = y;
+    el.dataset.period = period;
+    el.dataset.amp = amp;
+    el.dataset.phase = phase;
+    el.dataset.born = performance.now();
+
+    field.appendChild(el);
+    liveBoboons.add(el);
+    requestAnimationFrame(() => el.classList.add('on'));
+  }
+
+  function tick(now) {
+    liveBoboons.forEach(el => {
+      if (el.classList.contains('escaping')) return;
+      const t = (now - +el.dataset.born) / 1000;
+      const period = +el.dataset.period;
+      const amp = +el.dataset.amp;
+      const phase = +el.dataset.phase;
+      const dy = Math.sin((t / period) * Math.PI * 2 + phase) * amp;
+      el.style.transform = `translateY(${dy}px)`;
+    });
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+
+  // initial population
+  for (let i = 0; i < 5; i++) setTimeout(spawn, i * 280);
+  // ambient — refill toward MAX
+  setInterval(spawn, 1800);
+
+  // click releases one boboon (it drifts up and out)
+  document.body.addEventListener('click', () => {
+    // pick the highest boboon (closest to escape)
+    let chosen = null;
+    let minTop = Infinity;
+    liveBoboons.forEach(el => {
+      if (el.classList.contains('escaping')) return;
+      const top = parseFloat(el.style.top);
+      if (top < minTop) { minTop = top; chosen = el; }
+    });
+    if (chosen) {
+      const drift = (Math.random() - 0.5) * 80;
+      chosen.style.setProperty('--x', drift + 'px');
+      chosen.classList.add('escaping');
+      liveBoboons.delete(chosen);
+      setTimeout(() => chosen.remove(), 3400);
+    }
+    // change caption sometimes
+    if (Math.random() < 0.55) {
+      caption.innerHTML = pick(captions);
+    }
+  });
+</script>
+
+</body>
+</html>
